@@ -141,7 +141,7 @@ pub fn Mat4(comptime T: type) type {
         pub fn m32(self: *const Self) T { return self.data[14]; }
         pub fn m33(self: *const Self) T { return self.data[15]; }
 
-        pub fn mul(self: *const Self, vec: Vec4(T)) Vec4(T) {
+        pub fn mul_vec4(self: *const Self, vec: Vec4(T)) Vec4(T) {
             const result = Vec4(T).init(
                 self.m00() * vec.x + self.m10() * vec.y + self.m20() * vec.z + self.m30() * vec.w,
                 self.m01() * vec.x + self.m11() * vec.y + self.m21() * vec.z + self.m31() * vec.w,
@@ -150,6 +150,19 @@ pub fn Mat4(comptime T: type) type {
             );
 
             return result;
+        }
+
+        //pub fn mul_mat4(a: *const Self, b: *const Self) Self {
+        //
+        //}
+
+        pub fn translate(vec: Vec3(T)) Self {
+            var translation_matrix = Self.identity();
+            translation_matrix.data[12] = vec.x;
+            translation_matrix.data[13] = vec.y;
+            translation_matrix.data[14] = vec.z;
+
+            return translation_matrix;
         }
     };
 }
@@ -258,9 +271,31 @@ test "matrix: identity" {
     testing.expect(identity.m33() == 1.0);
 
     const a = Vec4(f32).init(1.0, 2.0, 3.0, 4.0);
-    const b = identity.mul(a);
+    const b = identity.mul_vec4(a);
     testing.expect(a.x == b.x);
     testing.expect(a.y == b.y);
     testing.expect(a.z == b.z);
     testing.expect(a.w == b.w);
+}
+
+test "translation matrix" {
+    const position = Vec3(f32).init(1.0, 2.0, 3.0);
+    const translation_matrix = Mat4(f32).translate(position);
+
+    testing.expect(translation_matrix.m00() == 1.0);
+    testing.expect(translation_matrix.m01() == 0.0);
+    testing.expect(translation_matrix.m02() == 0.0);
+    testing.expect(translation_matrix.m03() == 0.0);
+    testing.expect(translation_matrix.m10() == 0.0);
+    testing.expect(translation_matrix.m11() == 1.0);
+    testing.expect(translation_matrix.m12() == 0.0);
+    testing.expect(translation_matrix.m13() == 0.0);
+    testing.expect(translation_matrix.m20() == 0.0);
+    testing.expect(translation_matrix.m21() == 0.0);
+    testing.expect(translation_matrix.m22() == 1.0);
+    testing.expect(translation_matrix.m23() == 0.0);
+    testing.expect(translation_matrix.m30() == 1.0);
+    testing.expect(translation_matrix.m31() == 2.0);
+    testing.expect(translation_matrix.m32() == 3.0);
+    testing.expect(translation_matrix.m33() == 1.0);
 }
