@@ -152,6 +152,18 @@ pub fn Mat4(comptime T: type) type {
             return result;
         }
 
+        pub fn scale(vec: Vec3(T)) Self {
+            const result = Self{
+                .data = .{
+                    vec.x, 0, 0, 0,
+                    0, vec.y, 0, 0,
+                    0, 0, vec.z, 0,
+                    0, 0, 0, 1,
+                },
+            };
+            return result;
+        }
+
         pub fn translate(vec: Vec3(T)) Self {
             var translation_matrix = Self.identity();
             translation_matrix.data[12] = vec.x;
@@ -323,6 +335,28 @@ test "matrix: identity" {
     testing.expect(a.y == b.y);
     testing.expect(a.z == b.z);
     testing.expect(a.w == b.w);
+}
+
+test "scale matrix" {
+    const scale = Vec3(f32).init(1.0, 2.0, 3.0);
+    const scale_matrix = Mat4(f32).scale(scale);
+
+    testing.expect(scale_matrix.m00() == 1.0);
+    testing.expect(scale_matrix.m01() == 0.0);
+    testing.expect(scale_matrix.m02() == 0.0);
+    testing.expect(scale_matrix.m03() == 0.0);
+    testing.expect(scale_matrix.m10() == 0.0);
+    testing.expect(scale_matrix.m11() == 2.0);
+    testing.expect(scale_matrix.m12() == 0.0);
+    testing.expect(scale_matrix.m13() == 0.0);
+    testing.expect(scale_matrix.m20() == 0.0);
+    testing.expect(scale_matrix.m21() == 0.0);
+    testing.expect(scale_matrix.m22() == 3.0);
+    testing.expect(scale_matrix.m23() == 0.0);
+    testing.expect(scale_matrix.m30() == 0.0);
+    testing.expect(scale_matrix.m31() == 0.0);
+    testing.expect(scale_matrix.m32() == 0.0);
+    testing.expect(scale_matrix.m33() == 1.0);
 }
 
 test "translation matrix" {
