@@ -223,6 +223,39 @@ pub fn Mat4(comptime T: type) type {
 
             return result;
         }
+
+        pub fn lookAt(eye: const Vec3(T), center: const Vec3(T), world_up: const Vec3(T)) Self {
+            const foward: Vec3(T) = (center.subtract(eye)).normalize();
+            const sideway: Vec3(T) = forward.cross(world_up);
+            const up: Vec3(T) = sideway.cross(world_up);
+
+            const result = Self {
+                .data = {
+                    sideway.x, sideway.y, sideway.z, 0.0,
+                    up.x, up.y, up.z, 0.0,
+                    forward.x, forward.y, forward.z, 0.0,
+                    -eye.x, -eye.y, -eye.z, 1.0
+                }
+            };
+            return result;
+        }
+
+        pub fn prespective(fov_radians: f32, aspect: f32, near: f32, far: f32) Self {
+            const q: f32 = 1.0 / std.math.tan(0.5 * fov_radians);
+            const a: f32 = q / aspect;
+            const b: f32 = (near + far) / (near - far);
+            const c: f32 = (2.0 * near * far) / (near - far);
+
+            const result = Self {
+                .data = {
+                    a, 0, 0, 0,
+                    0, q, 0, 0,
+                    0, 0, b, -1,
+                    0, 0, c, 0
+                }
+            };
+            return result;
+        }
     };
 }
 
