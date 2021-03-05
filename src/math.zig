@@ -185,6 +185,32 @@ pub fn Mat4(comptime T: type) type {
 
             return rotation_matrix;
         }
+
+        pub fn mulMat4(self: *const Self, other: *const Self) Self {
+            const result = Self {
+                self.data[0] * other.data[ 0] + self.data[4] * other.data[ 1] + self.data[ 8] * other.data[ 2] + self.data[12] * self.data[ 3], // data[0]
+                self.data[1] * other.data[ 0] + self.data[5] * other.data[ 1] + self.data[ 9] * other.data[ 2] + self.data[13] * self.data[ 3], // data[1]
+                self.data[2] * other.data[ 0] + self.data[6] * other.data[ 1] + self.data[10] * other.data[ 2] + self.data[14] * self.data[ 3], // data[2]
+                self.data[3] * other.data[ 0] + self.data[7] * other.data[ 1] + self.data[11] * other.data[ 2] + self.data[15] * self.data[ 3], // data[3]
+
+                self.data[0] * other.data[ 4] + self.data[4] * other.data[ 5] + self.data[ 8] * other.data[ 6] + self.data[12] * self.data[ 7], // data[4]
+                self.data[1] * other.data[ 4] + self.data[5] * other.data[ 5] + self.data[ 9] * other.data[ 6] + self.data[13] * self.data[ 7], // data[5]
+                self.data[2] * other.data[ 4] + self.data[6] * other.data[ 5] + self.data[10] * other.data[ 6] + self.data[14] * self.data[ 7], // data[6]
+                self.data[3] * other.data[ 4] + self.data[7] * other.data[ 5] + self.data[11] * other.data[ 6] + self.data[15] * self.data[ 7], // data[7]
+
+                self.data[0] * other.data[ 8] + self.data[4] * other.data[ 9] + self.data[ 8] * other.data[10] + self.data[12] * self.data[11], // data[8]
+                self.data[1] * other.data[ 8] + self.data[5] * other.data[ 9] + self.data[ 9] * other.data[10] + self.data[13] * self.data[11], // data[9]
+                self.data[2] * other.data[ 8] + self.data[6] * other.data[ 9] + self.data[10] * other.data[10] + self.data[14] * self.data[11], // data[10]
+                self.data[3] * other.data[ 8] + self.data[7] * other.data[ 9] + self.data[11] * other.data[10] + self.data[15] * self.data[11], // data[11]
+
+                self.data[0] * other.data[12] + self.data[4] * other.data[13] + self.data[ 8] * other.data[15] + self.data[12] * self.data[15], // data[12]
+                self.data[1] * other.data[12] + self.data[5] * other.data[13] + self.data[ 9] * other.data[15] + self.data[13] * self.data[15], // data[13]
+                self.data[2] * other.data[12] + self.data[6] * other.data[13] + self.data[10] * other.data[15] + self.data[14] * self.data[15], // data[14]
+                self.data[3] * other.data[12] + self.data[7] * other.data[13] + self.data[11] * other.data[15] + self.data[15] * self.data[15], // data[15]
+            };
+
+            return result;
+        }
     };
 }
 
