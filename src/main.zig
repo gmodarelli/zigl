@@ -1,6 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const panic = std.debug.panic;
+const Mat4 = @import("math.zig").Mat4;
 
 usingnamespace @import("c.zig");
 
@@ -28,6 +29,9 @@ const fragmentShaderSource: [:0]const u8 =
 
 
 pub fn main() void {
+    const identity = Mat4(f32).identity;
+    std.log.info("{}", .{identity});
+
     const ok = glfwInit();
     if (ok == 0) {
         panic("Failed to initialize GLFW\n", .{});
