@@ -140,6 +140,17 @@ pub fn Mat4(comptime T: type) type {
         pub fn m31(self: *const Self) T { return self.data[13]; }
         pub fn m32(self: *const Self) T { return self.data[14]; }
         pub fn m33(self: *const Self) T { return self.data[15]; }
+
+        pub fn mul(self: *const Self, vec: Vec4(T)) Vec4(T) {
+            const result = Vec4(T).init(
+                self.m00() * vec.x + self.m10() * vec.y + self.m20() * vec.z + self.m30() * vec.w,
+                self.m01() * vec.x + self.m11() * vec.y + self.m21() * vec.z + self.m31() * vec.w,
+                self.m02() * vec.x + self.m12() * vec.y + self.m22() * vec.z + self.m32() * vec.w,
+                self.m03() * vec.x + self.m13() * vec.y + self.m23() * vec.z + self.m33() * vec.w,
+            );
+
+            return result;
+        }
     };
 }
 
@@ -245,4 +256,11 @@ test "matrix: identity" {
     testing.expect(identity.m31() == 0.0);
     testing.expect(identity.m32() == 0.0);
     testing.expect(identity.m33() == 1.0);
+
+    const a = Vec4(f32).init(1.0, 2.0, 3.0, 4.0);
+    const b = identity.mul(a);
+    testing.expect(a.x == b.x);
+    testing.expect(a.y == b.y);
+    testing.expect(a.z == b.z);
+    testing.expect(a.w == b.w);
 }
