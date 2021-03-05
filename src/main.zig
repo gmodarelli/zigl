@@ -1,7 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const panic = std.debug.panic;
-const Mat4 = @import("math.zig").Mat4;
 
 usingnamespace @import("c.zig");
 
@@ -29,9 +28,6 @@ const fragmentShaderSource: [:0]const u8 =
 
 
 pub fn main() void {
-    const identity = Mat4(f32).identity;
-    std.log.info("{}", .{identity});
-
     const ok = glfwInit();
     if (ok == 0) {
         panic("Failed to initialize GLFW\n", .{});
@@ -73,9 +69,16 @@ pub fn main() void {
     const fragmentShaderPtr: ?[*]const u8 = fragmentShaderSource.ptr;
     const shaderProgram = compileShaders(vertexShaderPtr, fragmentShaderPtr);
 
+    // NOTE: Creating an empty VAO to be able to invoke glDrawArrays without
+    // sending data to the GPU
+    var vao: u32 = undefined;
+    glGenVertexArrays(1, &vao);
+
     while (glfwWindowShouldClose(window) == 0) {
         const color = [_]GLfloat{ 0.0, 0.2, 0.0, 1.0 };
         glClearBufferfv(GL_COLOR, 0, @ptrCast([*c]const GLfloat, &color));
+
+        glBindVertexArray(vao);
 
         glUseProgram(shaderProgram);
         glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -125,5 +128,5 @@ fn compileShaders(vertexShaderPtr: ?[*]const u8, fragmentShaderPtr: ?[*]const u8
 }
 
 pub fn opengl_debug_callback(source: GLenum, messageType: GLenum, id: GLuint, severity: GLenum, length: GLsizei, message: [*c]const GLchar, userParam: ?*const GLvoid) callconv(.C) void {
-    // std.log.debug("{s}", .{message});
+    std.log.debug("{s}", .{message});
 }
