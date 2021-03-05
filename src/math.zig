@@ -141,7 +141,7 @@ pub fn Mat4(comptime T: type) type {
         pub fn m32(self: *const Self) T { return self.data[14]; }
         pub fn m33(self: *const Self) T { return self.data[15]; }
 
-        pub fn mul_vec4(self: *const Self, vec: Vec4(T)) Vec4(T) {
+        pub fn mulVec4(self: *const Self, vec: Vec4(T)) Vec4(T) {
             const result = Vec4(T).init(
                 self.m00() * vec.x + self.m10() * vec.y + self.m20() * vec.z + self.m30() * vec.w,
                 self.m01() * vec.x + self.m11() * vec.y + self.m21() * vec.z + self.m31() * vec.w,
@@ -152,10 +152,6 @@ pub fn Mat4(comptime T: type) type {
             return result;
         }
 
-        //pub fn mul_mat4(a: *const Self, b: *const Self) Self {
-        //
-        //}
-
         pub fn translate(vec: Vec3(T)) Self {
             var translation_matrix = Self.identity();
             translation_matrix.data[12] = vec.x;
@@ -163,6 +159,31 @@ pub fn Mat4(comptime T: type) type {
             translation_matrix.data[14] = vec.z;
 
             return translation_matrix;
+        }
+
+        pub fn rotate(angle_radians: f32, axis: Vec3(T)) Self {
+            var rotation_matrix = Self.identity();
+
+            const x2 = axis.x * axis.x;
+            const y2 = axis.y * axis.y;
+            const z2 = axis.z * axis.z;
+            const c: f32 = std.math.cos(angle_radians);
+            const s: f32 = std.math.sin(angle_radians);
+            const omc: f32 = 1.0 - c;
+
+            rotation_matrix.data[0] = x2 * omc + c;
+            rotation_matrix.data[1] = axis.y * axis.x * omc + axis.z * s;
+            rotation_matrix.data[2] = axis.x * axis.z * omc - axis.y * s;
+
+            rotation_matrix.data[4] = axis.x * axis.y * omc - axis.z * s;
+            rotation_matrix.data[5] = y2 * omc + c;
+            rotation_matrix.data[6] = axis.y * axis.z * omc + axis.x * s;
+
+            rotation_matrix.data[8] = axis.x * axis.z * omc + axis.y * s;
+            rotation_matrix.data[9] = axis.y * axis.z * omc - axis.x * s;
+            rotation_matrix.data[10] = z2 * omc + c;
+
+            return rotation_matrix;
         }
     };
 }
@@ -271,7 +292,7 @@ test "matrix: identity" {
     testing.expect(identity.m33() == 1.0);
 
     const a = Vec4(f32).init(1.0, 2.0, 3.0, 4.0);
-    const b = identity.mul_vec4(a);
+    const b = identity.mulVec4(a);
     testing.expect(a.x == b.x);
     testing.expect(a.y == b.y);
     testing.expect(a.z == b.z);
@@ -298,4 +319,24 @@ test "translation matrix" {
     testing.expect(translation_matrix.m31() == 2.0);
     testing.expect(translation_matrix.m32() == 3.0);
     testing.expect(translation_matrix.m33() == 1.0);
+}
+
+test "rotation matrix" {
+    const rotation_axis = Vec3(f32).init(1.0, 0.0, 0.0);
+    const a = Vec4(f32).init(1.0, 2.0, 3.0, 1.0);
+
+    var rotation_matrix = Mat4(f32).rotate(45.0 * 0.0174532925, rotation_axis);
+    const b = rotation_matrix.mulVec4(a);
+
+    rotation_matrix = Mat4(f32).rotate(-45.0 * 0.0174532925, rotation_axis);
+    const c = rotation_matrix.mulVec4(b);
+
+    testing.expect(a.x == b.x);
+    testing.expect(a.y != b.y);
+    testing.expect(a.z != b.z);
+
+    const eps_value = comptime std.math.epsilon(f32);
+    testing.expect(a.x == c.x);
+    testing.expect(std.math.approxEqAbs(f32, a.y, c.y, eps_value));
+    testing.expect(std.math.approxEqAbs(f32, a.z, c.z, eps_value));
 }
