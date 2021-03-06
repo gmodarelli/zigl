@@ -8,6 +8,8 @@ const math = @import("math.zig");
 const Vec3 = math.Vec3;
 
 const model = @import("model.zig");
+const Vertex = model.Vertex;
+
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 var global_allocator = &gpa.allocator;
 
@@ -18,30 +20,29 @@ const SCR_HEIGHT: u32 = 1080;
 const vertexShaderSource: [:0]const u8 =
     \\#version 450 core
     \\layout (location = 0) in vec3 position;
-    \\layout (location = 1) in vec3 color;
-    \\layout (location = 0) out vec3 outColor;
+    \\layout (location = 1) in vec3 normal;
+    \\layout (location = 2) in vec2 uv;
+    \\layout (location = 0) out vec2 outUV;
+    \\layout (location = 1) out vec3 outNormal;
     \\void main() {
-    \\  gl_Position = vec4(position, 1.0);
-    \\  outColor = color;
+    \\  gl_Position = vec4(position.xyz, 1.0);
+    \\  outUV = uv;
+    \\  outNormal = normal;
     \\};
 ;
 
 const fragmentShaderSource: [:0]const u8 =
     \\#version 450 core
-    \\layout (location = 0) in vec3 inColor;
+    \\layout (location = 0) in vec2 uv;
+    \\layout (location = 1) in vec3 normal;
     \\out vec4 color;
     \\void main() {
-    \\  color = vec4(inColor, 1.0f);
+    \\  vec3 c = mix(normal * 0.5 - 0.5, vec3(uv.xy, 0), 0.5);
+    \\  color = vec4(c, 1.0f);
     \\};
 ;
 
-const Vertex = struct {
-    position: Vec3(f32),
-    color: Vec3(f32),
-};
-
 pub fn main() !void {
-    try model.loadModel(global_allocator, "data/models/cube.obj");
 
     const ok = glfwInit();
     if (ok == 0) {
@@ -84,41 +85,37 @@ pub fn main() !void {
     const fragmentShaderPtr: ?[*]const u8 = fragmentShaderSource.ptr;
     const shaderProgram = compileShaders(vertexShaderPtr, fragmentShaderPtr);
 
-    const vertices = [_]Vertex {
-        Vertex{ .position = .{ .x =  0.25, .y = -0.25, .z = 0.5 }, .color = .{ .x = 1.0, .y = 0.0, .z = 0.0 } },
-        Vertex{ .position = .{ .x = -0.25, .y = -0.25, .z = 0.5 }, .color = .{ .x = 0.0, .y = 1.0, .z = 0.0 } },
-        Vertex{ .position = .{ .x =  0.25, .y =  0.25, .z = 0.5 }, .color = .{ .x = 0.0, .y = 0.0, .z = 1.0 } },
-    };
+    var vertices = try model.loadModel(global_allocator, "data/models/cube.obj");
 
     var vao: GLuint = undefined;
     var buffer: GLuint = undefined;
 
-    {
-        // Create the Vertex Array Object
-        glGenVertexArrays(1, &vao);
-        glBindVertexArray(vao);
+    // Create the Vertex Array Object
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
 
-        // Allocate and initialize a buffer object
-        glCreateBuffers(1, &buffer);
-        glNamedBufferStorage(buffer, @sizeOf(Vertex) * vertices.len, &vertices, GL_MAP_WRITE_BIT);
-        // std.log.debug("Vertices in bytes: {}", .{@sizeOf(Vertex) * vertices.len});
+    // Allocate and initialize a buffer object
+    glCreateBuffers(1, &buffer);
+    glNamedBufferStorage(buffer, @intCast(c_longlong, @sizeOf(Vertex) * vertices.len), vertices.ptr, 0);
 
-        // Set up two vertex attributes.
-        // Position
-        glVertexArrayAttribBinding(vao, 0, 0);
-        glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE, @byteOffsetOf(Vertex, "position"));
-        glEnableVertexAttribArray(0);
-        // Color
-        glVertexArrayAttribBinding(vao, 1, 0);
-        glVertexArrayAttribFormat(vao, 1, 3, GL_FLOAT, GL_FALSE, @byteOffsetOf(Vertex, "color"));
-        glEnableVertexAttribArray(0);
-        glEnableVertexAttribArray(1);
+    // Bind the buffer to the vertex array object
+    glVertexArrayVertexBuffer(vao, 0, buffer, 0, @sizeOf(Vertex));
 
-        // Bind the buffer to the vertex array object
-        glVertexArrayVertexBuffer(vao, 0, buffer, 0, @sizeOf(Vertex));
+    // Set up two vertex attributes.
+    // Position
+    glVertexArrayAttribBinding(vao, 0, 0);
+    glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE, @byteOffsetOf(Vertex, "position"));
+    glEnableVertexAttribArray(0);
+    // Normal
+    glVertexArrayAttribBinding(vao, 1, 0);
+    glVertexArrayAttribFormat(vao, 1, 3, GL_FLOAT, GL_FALSE, @byteOffsetOf(Vertex, "normal"));
+    glEnableVertexAttribArray(1);
+    // UV
+    glVertexArrayAttribBinding(vao, 2, 0);
+    glVertexArrayAttribFormat(vao, 2, 2, GL_FLOAT, GL_FALSE, @byteOffsetOf(Vertex, "uv0"));
+    glEnableVertexAttribArray(2);
 
-        glBindVertexArray(0);
-    }
+    glBindVertexArray(0);
 
     while (glfwWindowShouldClose(window) == 0) {
         const color = [_]GLfloat{ 0.0, 0.2, 0.0, 1.0 };
@@ -126,11 +123,17 @@ pub fn main() !void {
 
         glUseProgram(shaderProgram);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawArrays(GL_TRIANGLES, 0, @intCast(c_int, vertices.len));
         glBindVertexArray(0);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+    }
+
+    global_allocator.free(vertices);
+    const leaked = gpa.deinit();
+    if (leaked) {
+        std.log.debug("Memory leaked", .{});
     }
 }
 

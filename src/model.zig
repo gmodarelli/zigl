@@ -3,13 +3,13 @@ const math = @import("math.zig");
 const Vec2 = math.Vec2;
 const Vec3 = math.Vec3;
 
-const Vertex = struct {
+pub const Vertex = struct {
     position: Vec3(f32),
     normal: Vec3(f32),
     uv0: Vec2(f32),
 };
 
-pub fn loadModel(allocator: *std.mem.Allocator, obj_path: []const u8) !void {
+pub fn loadModel(allocator: *std.mem.Allocator, obj_path: []const u8) ![]Vertex {
     const cwd = std.fs.cwd();
     const obj_file = try cwd.openFile(obj_path, .{});
     defer obj_file.close();
@@ -86,8 +86,8 @@ pub fn loadModel(allocator: *std.mem.Allocator, obj_path: []const u8) !void {
 
                 i += 1;
             }
-            try normals.append(normal);
-        } else if (std.mem.eql(u8, line[0..2], "f ")) { // Collect vertex texture normals
+            try normals.append(normal.normalize());
+        } else if (std.mem.eql(u8, line[0..2], "f ")) { // Collect vertices (with duplicates)
             var faces = std.mem.tokenize(line[2..], " ");
             while (faces.next()) |face| {
                 var vertex: Vertex = undefined;
@@ -112,8 +112,8 @@ pub fn loadModel(allocator: *std.mem.Allocator, obj_path: []const u8) !void {
         }
     }
 
-    std.log.debug("positions: {}", .{positions.items.len});
-    std.log.debug("uvs: {}", .{uvs.items.len});
-    std.log.debug("normals: {}", .{normals.items.len});
-    std.log.debug("vertices: {}", .{vertices.items.len});
+    var result = try allocator.alloc(Vertex, vertices.items.len);
+    std.mem.copy(Vertex, result, vertices.items);
+
+    return result;
 }
