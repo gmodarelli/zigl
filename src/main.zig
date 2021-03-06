@@ -107,7 +107,7 @@ pub fn main() !void {
 
     var cube_mesh = try model.loadModel(global_allocator, "data/models/cube.obj");
     var cube_transform = ModelTransform {
-        .model_matrix = Mat4(f32).translate(Vec3(f32).init(0, 0, -4)),
+        .model_matrix = (Mat4(f32).translate(Vec3(f32).init(0, 0, -10))).mulMat4((Mat4(f32).rotate(45.0 * 0.0174532925, Vec3(f32).init(0, 0, 1))).mulMat4(Mat4(f32).scale(Vec3(f32).init(1, 1, 1)))),
     };
 
     var scene_uniform_buffer: GLuint = undefined;
@@ -149,12 +149,20 @@ pub fn main() !void {
     glBindVertexArray(0);
 
     while (glfwWindowShouldClose(window) == 0) {
+        // Clear color and depth
         const color = [_]GLfloat{ 0.0, 0.2, 0.0, 1.0 };
+        const depth = [_]GLfloat{ 0.0 };
         glClearBufferfv(GL_COLOR, 0, @ptrCast([*c]const GLfloat, &color));
+        glClearBufferfv(GL_DEPTH, 0, @ptrCast([*c]const GLfloat, &depth));
+
+        // Bind vertex buffer (this should be for all geometry)
+        glBindVertexArray(vao);
 
         glUseProgram(shaderProgram);
+        glFrontFace(GL_CCW);
         glEnable(GL_DEPTH_TEST);
-        glBindVertexArray(vao);
+        glDepthFunc(GL_GREATER);
+
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, scene_uniform_buffer);
 
         glBindBufferBase(GL_UNIFORM_BUFFER, 1, cube_uniform_buffer);
