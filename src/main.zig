@@ -7,6 +7,10 @@ usingnamespace @import("c.zig");
 const math = @import("math.zig");
 const Vec3 = math.Vec3;
 
+const model = @import("model.zig");
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var global_allocator = &gpa.allocator;
+
 const SCR_WIDTH: u32 = 1920;
 const SCR_HEIGHT: u32 = 1080;
 
@@ -36,7 +40,9 @@ const Vertex = struct {
     color: Vec3(f32),
 };
 
-pub fn main() void {
+pub fn main() !void {
+    try model.loadModel(global_allocator, "data/models/cube.obj");
+
     const ok = glfwInit();
     if (ok == 0) {
         panic("Failed to initialize GLFW\n", .{});

@@ -1,6 +1,39 @@
 const std = @import("std");
 const testing = std.testing;
 
+pub fn Vec2(comptime T: type) type {
+    return packed struct {
+        const Self = @This();
+
+        x: T,
+        y: T,
+
+        pub fn init(x: T, y: T) Self {
+            const self = Self{
+                .x = x,
+                .y = y,
+            };
+            return self;
+        }
+
+        pub fn add(a: Self, b: Self) Self {
+            return Self.init(a.x + b.x, a.y + b.y);
+        }
+
+        pub fn subtract(a: Self, b: Self) Self {
+            return Self.init(a.x - b.x, a.y - b.y);
+        }
+
+        pub fn negate(self: Self) Self {
+            return Self.init(-self.x, -self.y);
+        }
+
+        pub fn scale(self: Self, factor: T) Self {
+            return Self.init(self.x * factor, self.y * factor);
+        }
+    };
+}
+
 pub fn Vec3(comptime T: type) type {
     return packed struct {
         const Self = @This();
