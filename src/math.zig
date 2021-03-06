@@ -145,6 +145,8 @@ pub fn Mat4(comptime T: type) type {
         // column-first
         data: [16]T,
 
+
+
         pub fn identity() Self {
             const self = Self{
                 .data = .{
@@ -231,38 +233,40 @@ pub fn Mat4(comptime T: type) type {
             return rotation_matrix;
         }
 
-        pub fn mulMat4(self: *const Self, other: *const Self) Self {
+        pub fn mulMat4(self: Self, other: Self) Self {
             const result = Self {
-                self.data[0] * other.data[ 0] + self.data[4] * other.data[ 1] + self.data[ 8] * other.data[ 2] + self.data[12] * self.data[ 3], // data[0]
-                self.data[1] * other.data[ 0] + self.data[5] * other.data[ 1] + self.data[ 9] * other.data[ 2] + self.data[13] * self.data[ 3], // data[1]
-                self.data[2] * other.data[ 0] + self.data[6] * other.data[ 1] + self.data[10] * other.data[ 2] + self.data[14] * self.data[ 3], // data[2]
-                self.data[3] * other.data[ 0] + self.data[7] * other.data[ 1] + self.data[11] * other.data[ 2] + self.data[15] * self.data[ 3], // data[3]
+                .data = .{
+                    self.data[0] * other.data[ 0] + self.data[4] * other.data[ 1] + self.data[ 8] * other.data[ 2] + self.data[12] * self.data[ 3], // data[0]
+                    self.data[1] * other.data[ 0] + self.data[5] * other.data[ 1] + self.data[ 9] * other.data[ 2] + self.data[13] * self.data[ 3], // data[1]
+                    self.data[2] * other.data[ 0] + self.data[6] * other.data[ 1] + self.data[10] * other.data[ 2] + self.data[14] * self.data[ 3], // data[2]
+                    self.data[3] * other.data[ 0] + self.data[7] * other.data[ 1] + self.data[11] * other.data[ 2] + self.data[15] * self.data[ 3], // data[3]
 
-                self.data[0] * other.data[ 4] + self.data[4] * other.data[ 5] + self.data[ 8] * other.data[ 6] + self.data[12] * self.data[ 7], // data[4]
-                self.data[1] * other.data[ 4] + self.data[5] * other.data[ 5] + self.data[ 9] * other.data[ 6] + self.data[13] * self.data[ 7], // data[5]
-                self.data[2] * other.data[ 4] + self.data[6] * other.data[ 5] + self.data[10] * other.data[ 6] + self.data[14] * self.data[ 7], // data[6]
-                self.data[3] * other.data[ 4] + self.data[7] * other.data[ 5] + self.data[11] * other.data[ 6] + self.data[15] * self.data[ 7], // data[7]
+                    self.data[0] * other.data[ 4] + self.data[4] * other.data[ 5] + self.data[ 8] * other.data[ 6] + self.data[12] * self.data[ 7], // data[4]
+                    self.data[1] * other.data[ 4] + self.data[5] * other.data[ 5] + self.data[ 9] * other.data[ 6] + self.data[13] * self.data[ 7], // data[5]
+                    self.data[2] * other.data[ 4] + self.data[6] * other.data[ 5] + self.data[10] * other.data[ 6] + self.data[14] * self.data[ 7], // data[6]
+                    self.data[3] * other.data[ 4] + self.data[7] * other.data[ 5] + self.data[11] * other.data[ 6] + self.data[15] * self.data[ 7], // data[7]
 
-                self.data[0] * other.data[ 8] + self.data[4] * other.data[ 9] + self.data[ 8] * other.data[10] + self.data[12] * self.data[11], // data[8]
-                self.data[1] * other.data[ 8] + self.data[5] * other.data[ 9] + self.data[ 9] * other.data[10] + self.data[13] * self.data[11], // data[9]
-                self.data[2] * other.data[ 8] + self.data[6] * other.data[ 9] + self.data[10] * other.data[10] + self.data[14] * self.data[11], // data[10]
-                self.data[3] * other.data[ 8] + self.data[7] * other.data[ 9] + self.data[11] * other.data[10] + self.data[15] * self.data[11], // data[11]
+                    self.data[0] * other.data[ 8] + self.data[4] * other.data[ 9] + self.data[ 8] * other.data[10] + self.data[12] * self.data[11], // data[8]
+                    self.data[1] * other.data[ 8] + self.data[5] * other.data[ 9] + self.data[ 9] * other.data[10] + self.data[13] * self.data[11], // data[9]
+                    self.data[2] * other.data[ 8] + self.data[6] * other.data[ 9] + self.data[10] * other.data[10] + self.data[14] * self.data[11], // data[10]
+                    self.data[3] * other.data[ 8] + self.data[7] * other.data[ 9] + self.data[11] * other.data[10] + self.data[15] * self.data[11], // data[11]
 
-                self.data[0] * other.data[12] + self.data[4] * other.data[13] + self.data[ 8] * other.data[15] + self.data[12] * self.data[15], // data[12]
-                self.data[1] * other.data[12] + self.data[5] * other.data[13] + self.data[ 9] * other.data[15] + self.data[13] * self.data[15], // data[13]
-                self.data[2] * other.data[12] + self.data[6] * other.data[13] + self.data[10] * other.data[15] + self.data[14] * self.data[15], // data[14]
-                self.data[3] * other.data[12] + self.data[7] * other.data[13] + self.data[11] * other.data[15] + self.data[15] * self.data[15], // data[15]
+                    self.data[0] * other.data[12] + self.data[4] * other.data[13] + self.data[ 8] * other.data[15] + self.data[12] * self.data[15], // data[12]
+                    self.data[1] * other.data[12] + self.data[5] * other.data[13] + self.data[ 9] * other.data[15] + self.data[13] * self.data[15], // data[13]
+                    self.data[2] * other.data[12] + self.data[6] * other.data[13] + self.data[10] * other.data[15] + self.data[14] * self.data[15], // data[14]
+                    self.data[3] * other.data[12] + self.data[7] * other.data[13] + self.data[11] * other.data[15] + self.data[15] * self.data[15], // data[15]
+                }
             };
 
             return result;
         }
 
         pub fn lookAt(eye: Vec3(T), center: Vec3(T), world_up: Vec3(T)) Self {
-            const foward: Vec3(T) = (center.subtract(eye)).normalize();
-            const sideway: Vec3(T) = forward.cross(world_up);
+            const forward: Vec3(T) = (center.subtract(eye)).normalize();
+            const sideway: Vec3(T) = (forward.cross(world_up)).normalize();
             const up: Vec3(T) = sideway.cross(world_up);
 
-            const result = Self {
+            const m = Self {
                 .data = .{
                     sideway.x, sideway.y, sideway.z, 0.0,
                     up.x, up.y, up.z, 0.0,
@@ -270,10 +274,11 @@ pub fn Mat4(comptime T: type) type {
                     -eye.x, -eye.y, -eye.z, 1.0
                 }
             };
-            return result;
+
+            return m;
         }
 
-        pub fn prespective(fov_radians: f32, aspect: f32, near: f32, far: f32) Self {
+        pub fn perspective(fov_radians: f32, aspect: f32, near: f32, far: f32) Self {
             const q: f32 = 1.0 / std.math.tan(0.5 * fov_radians);
             const a: f32 = q / aspect;
             const b: f32 = (near + far) / (near - far);

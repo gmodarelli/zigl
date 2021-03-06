@@ -6,6 +6,7 @@ usingnamespace @import("c.zig");
 
 const math = @import("math.zig");
 const Vec3 = math.Vec3;
+const Mat4 = math.Mat4;
 
 const model = @import("model.zig");
 const Vertex = model.Vertex;
@@ -24,8 +25,15 @@ const vertexShaderSource: [:0]const u8 =
     \\layout (location = 2) in vec2 uv;
     \\layout (location = 0) out vec2 outUV;
     \\layout (location = 1) out vec3 outNormal;
+    \\layout (std140, binding = 0) uniform SceneTransformBlock {
+    \\  mat4 view_matrix;
+    \\  mat4 proj_matrix;
+    \\} scene;
+    \\layout (std140, binding = 1) uniform ObjectTransformBlock {
+    \\  mat4 model_matrix;
+    \\} object;
     \\void main() {
-    \\  gl_Position = vec4(position.xyz, 1.0);
+    \\  gl_Position = scene.proj_matrix * scene.view_matrix * object.model_matrix * vec4(position.xyz, 1.0);
     \\  outUV = uv;
     \\  outNormal = normal;
     \\};
@@ -37,13 +45,20 @@ const fragmentShaderSource: [:0]const u8 =
     \\layout (location = 1) in vec3 normal;
     \\out vec4 color;
     \\void main() {
-    \\  vec3 c = mix(normal * 0.5 - 0.5, vec3(uv.xy, 0), 0.5);
-    \\  color = vec4(c, 1.0f);
+    \\  color = vec4(uv.xy, 0.0f, 1.0f);
     \\};
 ;
 
-pub fn main() !void {
+const SceneParams = struct {
+    view_matrix: Mat4(f32),
+    proj_matrix: Mat4(f32),
+};
 
+const ModelTransform = struct {
+    model_matrix: Mat4(f32),
+};
+
+pub fn main() !void {
     const ok = glfwInit();
     if (ok == 0) {
         panic("Failed to initialize GLFW\n", .{});
@@ -85,21 +100,37 @@ pub fn main() !void {
     const fragmentShaderPtr: ?[*]const u8 = fragmentShaderSource.ptr;
     const shaderProgram = compileShaders(vertexShaderPtr, fragmentShaderPtr);
 
-    var vertices = try model.loadModel(global_allocator, "data/models/cube.obj");
+    var scene_params = SceneParams {
+        .view_matrix = Mat4(f32).lookAt(Vec3(f32).init(0, 0, 0), Vec3(f32).init(0, 0, -1), Vec3(f32).init(0, 1, 0)),
+        .proj_matrix = Mat4(f32).perspective(60.0 * 0.0174532925, @intToFloat(f32, SCR_WIDTH) / @intToFloat(f32, SCR_HEIGHT), 0.001, 1000.0),
+    };
+
+    var cube_mesh = try model.loadModel(global_allocator, "data/models/cube.obj");
+    var cube_transform = ModelTransform {
+        .model_matrix = Mat4(f32).translate(Vec3(f32).init(0, 0, -4)),
+    };
+
+    var scene_uniform_buffer: GLuint = undefined;
+    glCreateBuffers(1, &scene_uniform_buffer);
+    glNamedBufferStorage(scene_uniform_buffer, @intCast(c_longlong, @sizeOf(SceneParams)), &scene_params, 0);
+
+    var cube_uniform_buffer: GLuint = undefined;
+    glCreateBuffers(1, &cube_uniform_buffer);
+    glNamedBufferStorage(cube_uniform_buffer, @intCast(c_longlong, @sizeOf(ModelTransform)), &cube_transform, 0);
 
     var vao: GLuint = undefined;
-    var buffer: GLuint = undefined;
+    var vbo: GLuint = undefined;
 
     // Create the Vertex Array Object
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
     // Allocate and initialize a buffer object
-    glCreateBuffers(1, &buffer);
-    glNamedBufferStorage(buffer, @intCast(c_longlong, @sizeOf(Vertex) * vertices.len), vertices.ptr, 0);
+    glCreateBuffers(1, &vbo);
+    glNamedBufferStorage(vbo, @intCast(c_longlong, @sizeOf(Vertex) * cube_mesh.len), cube_mesh.ptr, 0);
 
     // Bind the buffer to the vertex array object
-    glVertexArrayVertexBuffer(vao, 0, buffer, 0, @sizeOf(Vertex));
+    glVertexArrayVertexBuffer(vao, 0, vbo, 0, @sizeOf(Vertex));
 
     // Set up two vertex attributes.
     // Position
@@ -122,15 +153,20 @@ pub fn main() !void {
         glClearBufferfv(GL_COLOR, 0, @ptrCast([*c]const GLfloat, &color));
 
         glUseProgram(shaderProgram);
+        glEnable(GL_DEPTH_TEST);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, @intCast(c_int, vertices.len));
+        glBindBufferBase(GL_UNIFORM_BUFFER, 0, scene_uniform_buffer);
+
+        glBindBufferBase(GL_UNIFORM_BUFFER, 1, cube_uniform_buffer);
+        glDrawArrays(GL_TRIANGLES, 0, @intCast(c_int, cube_mesh.len));
+
         glBindVertexArray(0);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    global_allocator.free(vertices);
+    global_allocator.free(cube_mesh);
     const leaked = gpa.deinit();
     if (leaked) {
         std.log.debug("Memory leaked", .{});
