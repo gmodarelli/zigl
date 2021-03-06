@@ -224,13 +224,13 @@ pub fn Mat4(comptime T: type) type {
             return result;
         }
 
-        pub fn lookAt(eye: const Vec3(T), center: const Vec3(T), world_up: const Vec3(T)) Self {
+        pub fn lookAt(eye: Vec3(T), center: Vec3(T), world_up: Vec3(T)) Self {
             const foward: Vec3(T) = (center.subtract(eye)).normalize();
             const sideway: Vec3(T) = forward.cross(world_up);
             const up: Vec3(T) = sideway.cross(world_up);
 
             const result = Self {
-                .data = {
+                .data = .{
                     sideway.x, sideway.y, sideway.z, 0.0,
                     up.x, up.y, up.z, 0.0,
                     forward.x, forward.y, forward.z, 0.0,
@@ -247,7 +247,7 @@ pub fn Mat4(comptime T: type) type {
             const c: f32 = (2.0 * near * far) / (near - far);
 
             const result = Self {
-                .data = {
+                .data = .{
                     a, 0, 0, 0,
                     0, q, 0, 0,
                     0, 0, b, -1,

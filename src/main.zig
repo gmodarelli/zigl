@@ -4,28 +4,37 @@ const panic = std.debug.panic;
 
 usingnamespace @import("c.zig");
 
+const math = @import("math.zig");
+const Vec3 = math.Vec3;
+
 const SCR_WIDTH: u32 = 1920;
 const SCR_HEIGHT: u32 = 1080;
 
 // [:0]const u8 means null-terminated array of chars
 const vertexShaderSource: [:0]const u8 =
     \\#version 450 core
+    \\layout (location = 0) in vec3 position;
+    \\layout (location = 1) in vec3 color;
+    \\layout (location = 0) out vec3 outColor;
     \\void main() {
-    \\  const vec4 vertices[3] = vec4[3] (vec4(0.25, -0.25, 0.5, 1.0),
-    \\                                    vec4(-0.25, -0.25, 0.5, 1.0),
-    \\                                    vec4(0.25, 0.25, 0.5, 1.0));
-    \\  gl_Position = vertices[gl_VertexID];
+    \\  gl_Position = vec4(position, 1.0);
+    \\  outColor = color;
     \\};
 ;
 
 const fragmentShaderSource: [:0]const u8 =
     \\#version 450 core
+    \\layout (location = 0) in vec3 inColor;
     \\out vec4 color;
     \\void main() {
-    \\  color = vec4(0.0f, 0.8f, 1.0f, 1.0f);
+    \\  color = vec4(inColor, 1.0f);
     \\};
 ;
 
+const Vertex = struct {
+    position: Vec3(f32),
+    color: Vec3(f32),
+};
 
 pub fn main() void {
     const ok = glfwInit();
@@ -69,19 +78,50 @@ pub fn main() void {
     const fragmentShaderPtr: ?[*]const u8 = fragmentShaderSource.ptr;
     const shaderProgram = compileShaders(vertexShaderPtr, fragmentShaderPtr);
 
-    // NOTE: Creating an empty VAO to be able to invoke glDrawArrays without
-    // sending data to the GPU
-    var vao: u32 = undefined;
-    glGenVertexArrays(1, &vao);
+    const vertices = [_]Vertex {
+        Vertex{ .position = .{ .x =  0.25, .y = -0.25, .z = 0.5 }, .color = .{ .x = 1.0, .y = 0.0, .z = 0.0 } },
+        Vertex{ .position = .{ .x = -0.25, .y = -0.25, .z = 0.5 }, .color = .{ .x = 0.0, .y = 1.0, .z = 0.0 } },
+        Vertex{ .position = .{ .x =  0.25, .y =  0.25, .z = 0.5 }, .color = .{ .x = 0.0, .y = 0.0, .z = 1.0 } },
+    };
+
+    var vao: GLuint = undefined;
+    var buffer: GLuint = undefined;
+
+    {
+        // Create the Vertex Array Object
+        glGenVertexArrays(1, &vao);
+        glBindVertexArray(vao);
+
+        // Allocate and initialize a buffer object
+        glCreateBuffers(1, &buffer);
+        glNamedBufferStorage(buffer, @sizeOf(Vertex) * vertices.len, &vertices, GL_MAP_WRITE_BIT);
+        // std.log.debug("Vertices in bytes: {}", .{@sizeOf(Vertex) * vertices.len});
+
+        // Set up two vertex attributes.
+        // Position
+        glVertexArrayAttribBinding(vao, 0, 0);
+        glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE, @byteOffsetOf(Vertex, "position"));
+        glEnableVertexAttribArray(0);
+        // Color
+        glVertexArrayAttribBinding(vao, 1, 0);
+        glVertexArrayAttribFormat(vao, 1, 3, GL_FLOAT, GL_FALSE, @byteOffsetOf(Vertex, "color"));
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+
+        // Bind the buffer to the vertex array object
+        glVertexArrayVertexBuffer(vao, 0, buffer, 0, @sizeOf(Vertex));
+
+        glBindVertexArray(0);
+    }
 
     while (glfwWindowShouldClose(window) == 0) {
         const color = [_]GLfloat{ 0.0, 0.2, 0.0, 1.0 };
         glClearBufferfv(GL_COLOR, 0, @ptrCast([*c]const GLfloat, &color));
 
-        glBindVertexArray(vao);
-
         glUseProgram(shaderProgram);
+        glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindVertexArray(0);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
