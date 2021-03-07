@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const panic = std.debug.panic;
 
-usingnamespace @import("c.zig");
+const c = @import("c.zig");
 
 const math = @import("math.zig");
 const Vec3 = math.Vec3;
@@ -59,42 +59,42 @@ const ModelTransform = struct {
 };
 
 pub fn main() !void {
-    const ok = glfwInit();
+    const ok = c.glfwInit();
     if (ok == 0) {
         panic("Failed to initialize GLFW\n", .{});
     }
-    defer glfwTerminate();
+    defer c.glfwTerminate();
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+    c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MAJOR, 4);
+    c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MINOR, 5);
+    c.glfwWindowHint(c.GLFW_OPENGL_PROFILE, c.GLFW_OPENGL_CORE_PROFILE);
+    c.glfwWindowHint(c.GLFW_OPENGL_FORWARD_COMPAT, c.GL_TRUE);
+    c.glfwWindowHint(c.GLFW_OPENGL_DEBUG_CONTEXT, c.GL_TRUE);
 
-    var window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Learn Zig", null, null);
+    var window = c.glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Learn Zig", null, null);
     if (window == null) {
         panic("Failed to create GLFW window\n", .{});
     }
 
-    glfwMakeContextCurrent(window);
+    c.glfwMakeContextCurrent(window);
 
-    if (gladLoadGLLoader(@ptrCast(GLADloadproc, glfwGetProcAddress)) == 0) {
+    if (c.gladLoadGLLoader(@ptrCast(c.GLADloadproc, c.glfwGetProcAddress)) == 0) {
         panic("Failed to initialize GLAD\n", .{});
     }
 
-    std.log.debug("GL_VENDOR: {s}", .{glGetString(GL_VENDOR)});
-    std.log.debug("GL_VERSION: {s}", .{glGetString(GL_VERSION)});
-    std.log.debug("GL_RENDERER: {s}", .{glGetString(GL_RENDERER)});
+    std.log.debug("GL_VENDOR: {s}", .{c.glGetString(c.GL_VENDOR)});
+    std.log.debug("GL_VERSION: {s}", .{c.glGetString(c.GL_VERSION)});
+    std.log.debug("GL_RENDERER: {s}", .{c.glGetString(c.GL_RENDERER)});
 
     // Check for debug context
     var flags: i32 = 0;
-    glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
-    if (flags & GL_CONTEXT_FLAG_DEBUG_BIT != 0) {
+    c.glGetIntegerv(c.GL_CONTEXT_FLAGS, &flags);
+    if (flags & c.GL_CONTEXT_FLAG_DEBUG_BIT != 0) {
         std.log.debug("Debug context available", .{});
     }
 
-    glDebugMessageCallback(opengl_debug_callback, null);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    c.glDebugMessageCallback(opengl_debug_callback, null);
+    c.glEnable(c.GL_DEBUG_OUTPUT_SYNCHRONOUS);
 
     const vertexShaderPtr: ?[*]const u8 = vertexShaderSource.ptr;
     const fragmentShaderPtr: ?[*]const u8 = fragmentShaderSource.ptr;
@@ -113,67 +113,66 @@ pub fn main() !void {
         .model_matrix = Mat4(f32).TRS(suzanne_position, suzanne_rotation, suzanne_scale),
     };
 
-    var scene_uniform_buffer: GLuint = undefined;
-    glCreateBuffers(1, &scene_uniform_buffer);
-    glNamedBufferStorage(scene_uniform_buffer, @intCast(c_longlong, @sizeOf(SceneParams)), &scene_params, 0);
+    var scene_uniform_buffer: c.GLuint = undefined;
+    c.glCreateBuffers(1, &scene_uniform_buffer);
+    c.glNamedBufferStorage(scene_uniform_buffer, @intCast(c_longlong, @sizeOf(SceneParams)), &scene_params, 0);
 
-    var suzanne_uniform_buffer: GLuint = undefined;
-    glCreateBuffers(1, &suzanne_uniform_buffer);
-    glNamedBufferStorage(suzanne_uniform_buffer, @intCast(c_longlong, @sizeOf(ModelTransform)), &suzanne_transform, GL_DYNAMIC_STORAGE_BIT);
+    var suzanne_uniform_buffer: c.GLuint = undefined;
+    c.glCreateBuffers(1, &suzanne_uniform_buffer);
+    c.glNamedBufferStorage(suzanne_uniform_buffer, @intCast(c_longlong, @sizeOf(ModelTransform)), &suzanne_transform, c.GL_DYNAMIC_STORAGE_BIT);
 
-    var vao: GLuint = undefined;
-    var vbo: GLuint = undefined;
+    var vao: c.GLuint = undefined;
+    var vbo: c.GLuint = undefined;
 
     // Create the Vertex Array Object
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
+    c.glGenVertexArrays(1, &vao);
+    c.glBindVertexArray(vao);
 
     // Allocate and initialize a buffer object
-    glCreateBuffers(1, &vbo);
-    glNamedBufferStorage(vbo, @intCast(c_longlong, @sizeOf(Vertex) * suzanne_mesh.len), suzanne_mesh.ptr, 0);
+    c.glCreateBuffers(1, &vbo);
+    c.glNamedBufferStorage(vbo, @intCast(c_longlong, @sizeOf(Vertex) * suzanne_mesh.len), suzanne_mesh.ptr, c.GL_DYNAMIC_STORAGE_BIT);
 
     // Bind the buffer to the vertex array object
-    glVertexArrayVertexBuffer(vao, 0, vbo, 0, @sizeOf(Vertex));
+    c.glVertexArrayVertexBuffer(vao, 0, vbo, 0, @sizeOf(Vertex));
 
     // Set up two vertex attributes.
     // Position
-    glVertexArrayAttribBinding(vao, 0, 0);
-    glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE, @byteOffsetOf(Vertex, "position"));
-    glEnableVertexAttribArray(0);
+    c.glVertexArrayAttribBinding(vao, 0, 0);
+    c.glVertexArrayAttribFormat(vao, 0, 3, c.GL_FLOAT, c.GL_FALSE, @byteOffsetOf(Vertex, "position"));
+    c.glEnableVertexAttribArray(0);
     // Normal
-    glVertexArrayAttribBinding(vao, 1, 0);
-    glVertexArrayAttribFormat(vao, 1, 3, GL_FLOAT, GL_FALSE, @byteOffsetOf(Vertex, "normal"));
-    glEnableVertexAttribArray(1);
+    c.glVertexArrayAttribBinding(vao, 1, 0);
+    c.glVertexArrayAttribFormat(vao, 1, 3, c.GL_FLOAT, c.GL_FALSE, @byteOffsetOf(Vertex, "normal"));
+    c.glEnableVertexAttribArray(1);
     // UV
-    glVertexArrayAttribBinding(vao, 2, 0);
-    glVertexArrayAttribFormat(vao, 2, 2, GL_FLOAT, GL_FALSE, @byteOffsetOf(Vertex, "uv0"));
-    glEnableVertexAttribArray(2);
+    c.glVertexArrayAttribBinding(vao, 2, 0);
+    c.glVertexArrayAttribFormat(vao, 2, 2, c.GL_FLOAT, c.GL_FALSE, @byteOffsetOf(Vertex, "uv0"));
+    c.glEnableVertexAttribArray(2);
 
-    glBindVertexArray(0);
+    c.glBindVertexArray(0);
 
-    var current_time = glfwGetTime();
+    var current_time = c.glfwGetTime();
     var last_time = current_time;
     var delta_time: f32 = 0.0;
-    var suzanne_rotation_duration_seconds: f32 = 2.0;
+    var suzanne_rotation_duration_seconds: f32 = 4.0;
     var suzanne_rotation_progress: f32 = 0.0;
     var suzanne_rotation_time_elapsed: f32 = 0.0;
 
-    while (glfwWindowShouldClose(window) == 0) {
+    while (c.glfwWindowShouldClose(window) == 0) {
         // Clear color and depth
-        const color = [_]GLfloat{ 0.0, 0.2, 0.0, 1.0 };
-        const depth = [_]GLfloat{ 0.0 };
-        glClearBufferfv(GL_COLOR, 0, @ptrCast([*c]const GLfloat, &color));
-        glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0, 0);
+        const color = [_]c.GLfloat{ 0.1, 0.1, 0.1, 1.0 };
+        const depth = [_]c.GLfloat{ 0.0 };
+        c.glClearBufferfv(c.GL_COLOR, 0, @ptrCast([*c]const c.GLfloat, &color));
+        c.glClearBufferfi(c.GL_DEPTH_STENCIL, 0, 1.0, 0);
 
         // Bind vertex buffer (this should be for all geometry)
-        glBindVertexArray(vao);
+        c.glBindVertexArray(vao);
 
-        glUseProgram(shaderProgram);
-        glFrontFace(GL_CCW);
-        glEnable(GL_DEPTH_TEST);
-        // glDepthFunc(GL_GREATER);
+        c.glUseProgram(shaderProgram);
+        c.glFrontFace(c.GL_CCW);
+        c.glEnable(c.GL_DEPTH_TEST);
 
-        glBindBufferBase(GL_UNIFORM_BUFFER, 0, scene_uniform_buffer);
+        c.glBindBufferBase(c.GL_UNIFORM_BUFFER, 0, scene_uniform_buffer);
 
         {
             suzanne_rotation_time_elapsed += delta_time;
@@ -187,18 +186,18 @@ pub fn main() !void {
             suzanne_transform = ModelTransform {
                 .model_matrix = Mat4(f32).TRS(suzanne_position, suzanne_rotation, suzanne_scale),
             };
-            glNamedBufferSubData(suzanne_uniform_buffer, 0, @intCast(c_longlong, @sizeOf(ModelTransform)), &suzanne_transform);
+            c.glNamedBufferSubData(suzanne_uniform_buffer, 0, @intCast(c_longlong, @sizeOf(ModelTransform)), &suzanne_transform);
         }
-        glBindBufferBase(GL_UNIFORM_BUFFER, 1, suzanne_uniform_buffer);
-        glDrawArrays(GL_TRIANGLES, 0, @intCast(c_int, suzanne_mesh.len));
+        c.glBindBufferBase(c.GL_UNIFORM_BUFFER, 1, suzanne_uniform_buffer);
+        c.glDrawArrays(c.GL_TRIANGLES, 0, @intCast(c_int, suzanne_mesh.len));
 
-        glBindVertexArray(0);
+        c.glBindVertexArray(0);
 
-        glfwSwapBuffers(window);
-        glfwPollEvents();
+        c.glfwSwapBuffers(window);
+        c.glfwPollEvents();
 
         // std.log.debug("dt {}", .{delta_time});
-        current_time = glfwGetTime();
+        current_time = c.glfwGetTime();
         delta_time = @floatCast(f32, current_time - last_time);
         last_time = current_time;
     }
@@ -211,44 +210,44 @@ pub fn main() !void {
 }
 
 // TODO: Return the default error shader instead of panicing
-fn compileShaders(vertexShaderPtr: ?[*]const u8, fragmentShaderPtr: ?[*]const u8) GLuint {
+fn compileShaders(vertexShaderPtr: ?[*]const u8, fragmentShaderPtr: ?[*]const u8) c.GLuint {
     var success: c_int = undefined;
     var infoLog: [512]u8 = undefined;
 
-    const vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderPtr, null);
-    glCompileShader(vertexShader);
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    const vertexShader = c.glCreateShader(c.GL_VERTEX_SHADER);
+    c.glShaderSource(vertexShader, 1, &vertexShaderPtr, null);
+    c.glCompileShader(vertexShader);
+    c.glGetShaderiv(vertexShader, c.GL_COMPILE_STATUS, &success);
     if (success == 0) {
-        glGetShaderInfoLog(vertexShader, 512, null, &infoLog);
+        c.glGetShaderInfoLog(vertexShader, 512, null, &infoLog);
         panic("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n{}\n", .{infoLog});
     }
 
-    const fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderPtr, null);
-    glCompileShader(fragmentShader);
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    const fragmentShader = c.glCreateShader(c.GL_FRAGMENT_SHADER);
+    c.glShaderSource(fragmentShader, 1, &fragmentShaderPtr, null);
+    c.glCompileShader(fragmentShader);
+    c.glGetShaderiv(fragmentShader, c.GL_COMPILE_STATUS, &success);
     if (success == 0) {
-        glGetShaderInfoLog(fragmentShader, 512, null, &infoLog);
+        c.glGetShaderInfoLog(fragmentShader, 512, null, &infoLog);
         panic("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n{}\n", .{infoLog});
     }
 
-    const shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    const shaderProgram = c.glCreateProgram();
+    c.glAttachShader(shaderProgram, vertexShader);
+    c.glAttachShader(shaderProgram, fragmentShader);
+    c.glLinkProgram(shaderProgram);
+    c.glGetProgramiv(shaderProgram, c.GL_LINK_STATUS, &success);
     if (success == 0) {
-        glGetProgramInfoLog(shaderProgram, 512, null, &infoLog);
+        c.glGetProgramInfoLog(shaderProgram, 512, null, &infoLog);
         panic("ERROR::SHADER::PROGRAM::LINKING_FAILED\n{}\n", .{infoLog});
     }
 
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    c.glDeleteShader(vertexShader);
+    c.glDeleteShader(fragmentShader);
 
     return shaderProgram;
 }
 
-pub fn opengl_debug_callback(source: GLenum, messageType: GLenum, id: GLuint, severity: GLenum, length: GLsizei, message: [*c]const GLchar, userParam: ?*const GLvoid) callconv(.C) void {
+pub fn opengl_debug_callback(source: c.GLenum, messageType: c.GLenum, id: c.GLuint, severity: c.GLenum, length: c.GLsizei, message: [*c]const c.GLchar, userParam: ?*const c.GLvoid) callconv(.C) void {
     std.log.debug("{s}", .{message});
 }
