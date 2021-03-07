@@ -10,9 +10,11 @@ const Mat4 = math.Mat4;
 
 const model = @import("model.zig");
 const Vertex = model.Vertex;
+const PngImage = @import("textures.zig").PngImage;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 var global_allocator = &gpa.allocator;
+var c_allocator = std.heap.c_allocator;
 
 const SCR_WIDTH: u32 = 1920;
 const SCR_HEIGHT: u32 = 1080;
@@ -43,9 +45,10 @@ const fragmentShaderSource: [:0]const u8 =
     \\#version 450 core
     \\layout (location = 0) in vec2 uv;
     \\layout (location = 1) in vec3 normal;
+    \\layout (binding = 0) uniform sampler2D albedo;
     \\out vec4 color;
     \\void main() {
-    \\  color = vec4(normal * 0.5f + 0.5f, 1.0f);
+    \\  color = texture(albedo, uv);
     \\};
 ;
 
@@ -105,8 +108,29 @@ pub fn main() !void {
         .proj_matrix = Mat4(f32).perspective(60.0, @intToFloat(f32, SCR_WIDTH) / @intToFloat(f32, SCR_HEIGHT), 0.001, 1000.0),
     };
 
+    // Texture
+    var uvgrid_texture: c.GLuint = undefined;
+    {
+        const uvgrid_file = try std.fs.cwd().openFile("data/textures/uvgrid.png", .{});
+        var data: []u8 = try uvgrid_file.readToEndAlloc(global_allocator, 1024 * 1024);
+        uvgrid_file.close();
+        var uvgrid_png = try PngImage.create(data);
+        std.log.debug("PNG size: {}x{}", .{uvgrid_png.width, uvgrid_png.height});
+        std.log.debug("Data ptr: {}", .{@ptrCast(*c_void, &uvgrid_png.raw[0])});
+        std.log.debug("Data len: {}", .{uvgrid_png.raw.len});
+
+        c.glCreateTextures(c.GL_TEXTURE_2D, 1, &uvgrid_texture);
+        c.glTextureStorage2D(uvgrid_texture, 1, c.GL_RGBA8, @intCast(c_int, uvgrid_png.width), @intCast(c_int, uvgrid_png.height));
+        c.glTextureSubImage2D(uvgrid_texture, 0,
+                              0, 0, @intCast(c_int, uvgrid_png.width), @intCast(c_int, uvgrid_png.height),
+                              c.GL_RGBA, c.GL_UNSIGNED_BYTE, @ptrCast(*c_void, &uvgrid_png.raw[0]));
+
+        global_allocator.free(data);
+        PngImage.destroy(&uvgrid_png);
+    }
+
     var suzanne_mesh = try model.loadModel(global_allocator, "data/models/suzanne.obj");
-    var suzanne_position = Vec3(f32).init(0, 0, -5);
+    var suzanne_position = Vec3(f32).init(0, 0, -4);
     var suzanne_scale = Vec3(f32).init(1, 1, 1);
     var suzanne_rotation = Vec3(f32).init(0, 0, 0);
     var suzanne_transform = ModelTransform {
@@ -188,6 +212,12 @@ pub fn main() !void {
             };
             c.glNamedBufferSubData(suzanne_uniform_buffer, 0, @intCast(c_longlong, @sizeOf(ModelTransform)), &suzanne_transform);
         }
+
+        // TODO: Instead of binding the texture, we should bind a sampler
+        // so we can set sampler settings (wrap mode, filtering, mip maps, etc...)
+        // on a per-material basis.
+        c.glBindTextureUnit(0, uvgrid_texture);
+
         c.glBindBufferBase(c.GL_UNIFORM_BUFFER, 1, suzanne_uniform_buffer);
         c.glDrawArrays(c.GL_TRIANGLES, 0, @intCast(c_int, suzanne_mesh.len));
 

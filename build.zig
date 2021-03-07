@@ -11,6 +11,7 @@ pub fn build(b: *Builder) void {
 
     // Sources
     exe.addCSourceFile("third_party/src/glad.c", &[_][]const u8{"-std=c99"});
+    exe.addCSourceFile("third_party/src/stb_image_implementation.c", &[_][]const u8{"-std=c99"});
 
     // Libraries
     exe.linkLibC();
