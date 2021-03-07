@@ -102,12 +102,15 @@ pub fn main() !void {
 
     var scene_params = SceneParams {
         .view_matrix = Mat4(f32).lookAt(Vec3(f32).init(0, 0, 0), Vec3(f32).init(0, 0, -1), Vec3(f32).init(0, 1, 0)),
-        .proj_matrix = Mat4(f32).perspective(60.0 * 0.0174532925, @intToFloat(f32, SCR_WIDTH) / @intToFloat(f32, SCR_HEIGHT), 0.001, 1000.0),
+        .proj_matrix = Mat4(f32).perspective(60.0, @intToFloat(f32, SCR_WIDTH) / @intToFloat(f32, SCR_HEIGHT), 0.001, 1000.0),
     };
 
     var cube_mesh = try model.loadModel(global_allocator, "data/models/cube.obj");
+    var cube_position = Vec3(f32).init(0, 0, -10);
+    var cube_scale = Vec3(f32).init(1, 1, 1);
+    var cube_rotation = Vec3(f32).init(0, 0, 0);
     var cube_transform = ModelTransform {
-        .model_matrix = (Mat4(f32).translate(Vec3(f32).init(0, 0, -10))).mulMat4((Mat4(f32).rotate(45.0 * 0.0174532925, Vec3(f32).init(0, 0, 1))).mulMat4(Mat4(f32).scale(Vec3(f32).init(1, 1, 1)))),
+        .model_matrix = Mat4(f32).TRS(cube_position, cube_rotation, cube_scale),
     };
 
     var scene_uniform_buffer: GLuint = undefined;
@@ -116,7 +119,7 @@ pub fn main() !void {
 
     var cube_uniform_buffer: GLuint = undefined;
     glCreateBuffers(1, &cube_uniform_buffer);
-    glNamedBufferStorage(cube_uniform_buffer, @intCast(c_longlong, @sizeOf(ModelTransform)), &cube_transform, 0);
+    glNamedBufferStorage(cube_uniform_buffer, @intCast(c_longlong, @sizeOf(ModelTransform)), &cube_transform, GL_DYNAMIC_STORAGE_BIT);
 
     var vao: GLuint = undefined;
     var vbo: GLuint = undefined;
@@ -148,12 +151,19 @@ pub fn main() !void {
 
     glBindVertexArray(0);
 
+    var current_time = glfwGetTime();
+    var last_time = current_time;
+    var delta_time: f32 = 0.0;
+    var cube_transform_duration_seconds: f32 = 3.0;
+    var cube_transform_progress: f32 = 0.0;
+    var cube_transform_time_elapsed: f32 = 0.0;
+
     while (glfwWindowShouldClose(window) == 0) {
         // Clear color and depth
         const color = [_]GLfloat{ 0.0, 0.2, 0.0, 1.0 };
         const depth = [_]GLfloat{ 0.0 };
         glClearBufferfv(GL_COLOR, 0, @ptrCast([*c]const GLfloat, &color));
-        glClearBufferfv(GL_DEPTH, 0, @ptrCast([*c]const GLfloat, &depth));
+        glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0, 0);
 
         // Bind vertex buffer (this should be for all geometry)
         glBindVertexArray(vao);
@@ -161,10 +171,27 @@ pub fn main() !void {
         glUseProgram(shaderProgram);
         glFrontFace(GL_CCW);
         glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_GREATER);
+        // glDepthFunc(GL_GREATER);
 
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, scene_uniform_buffer);
 
+        // Scale the cube over time
+        {
+            cube_transform_time_elapsed += delta_time;
+            cube_transform_progress = cube_transform_time_elapsed / cube_transform_duration_seconds;
+            if (cube_transform_time_elapsed >= cube_transform_duration_seconds) {
+                cube_transform_time_elapsed = 0.0;
+                cube_transform_progress = 0.0;
+            }
+
+            cube_position.x = cube_transform_progress;
+            cube_scale.y = 0.5 + cube_transform_progress * 0.5;
+            cube_rotation.y = cube_transform_progress * 360.0;
+            cube_transform = ModelTransform {
+                .model_matrix = Mat4(f32).TRS(cube_position, cube_rotation, cube_scale),
+            };
+            glNamedBufferSubData(cube_uniform_buffer, 0, @intCast(c_longlong, @sizeOf(ModelTransform)), &cube_transform);
+        }
         glBindBufferBase(GL_UNIFORM_BUFFER, 1, cube_uniform_buffer);
         glDrawArrays(GL_TRIANGLES, 0, @intCast(c_int, cube_mesh.len));
 
@@ -172,6 +199,11 @@ pub fn main() !void {
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+        // std.log.debug("dt {}", .{delta_time});
+        current_time = glfwGetTime();
+        delta_time = @floatCast(f32, current_time - last_time);
+        last_time = current_time;
     }
 
     global_allocator.free(cube_mesh);

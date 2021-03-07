@@ -187,8 +187,16 @@ pub fn Mat4(comptime T: type) type {
             return result;
         }
 
-        pub fn TRS(translation: Vec3(T), rotation: Self, scale_vector: Vec3(T)) Self {
-            return (Self.translate(translation).mulMat4(rotation)).mulMat4(Self.scale(scale_vector));
+        pub fn TRS(position: Vec3(T), rotation: Vec3(T), scale_vector: Vec3(T)) Self {
+            var translation_matrix = Self.translate(position);
+
+            var rotation_matrix = Self.rotate(rotation.x, Vec3(T).init(1, 0, 0));
+            rotation_matrix = rotation_matrix.mulMat4(Mat4(T).rotate(rotation.y, Vec3(T).init(0, 1, 0)));
+            rotation_matrix = rotation_matrix.mulMat4(Mat4(T).rotate(rotation.z, Vec3(T).init(0, 0, 1)));
+
+            var scale_matrix = Self.scale(scale_vector);
+
+            return (translation_matrix).mulMat4((rotation_matrix).mulMat4(scale_matrix));
         }
 
         pub fn scale(vec: Vec3(T)) Self {
@@ -212,7 +220,8 @@ pub fn Mat4(comptime T: type) type {
             return translation_matrix;
         }
 
-        pub fn rotate(angle_radians: f32, axis: Vec3(T)) Self {
+        pub fn rotate(angle_degrees: f32, axis: Vec3(T)) Self {
+            const angle_radians: f32 = angle_degrees * 0.0174532925;
             var rotation_matrix = Self.identity();
 
             const x2 = axis.x * axis.x;
@@ -223,15 +232,15 @@ pub fn Mat4(comptime T: type) type {
             const omc: f32 = 1.0 - c;
 
             rotation_matrix.data[0] = x2 * omc + c;
-            rotation_matrix.data[1] = axis.y * axis.x * omc + axis.z * s;
-            rotation_matrix.data[2] = axis.x * axis.z * omc - axis.y * s;
+            rotation_matrix.data[1] = axis.x * axis.y * omc - axis.z * s;
+            rotation_matrix.data[2] = axis.x * axis.z * omc + axis.y * s;
 
-            rotation_matrix.data[4] = axis.x * axis.y * omc - axis.z * s;
+            rotation_matrix.data[4] = axis.y * axis.x * omc + axis.z * s;
             rotation_matrix.data[5] = y2 * omc + c;
-            rotation_matrix.data[6] = axis.y * axis.z * omc + axis.x * s;
+            rotation_matrix.data[6] = axis.y * axis.z * omc - axis.x * s;
 
-            rotation_matrix.data[8] = axis.x * axis.z * omc + axis.y * s;
-            rotation_matrix.data[9] = axis.y * axis.z * omc - axis.x * s;
+            rotation_matrix.data[8] = axis.x * axis.z * omc - axis.y * s;
+            rotation_matrix.data[9] = axis.y * axis.z * omc + axis.x * s;
             rotation_matrix.data[10] = z2 * omc + c;
 
             return rotation_matrix;
@@ -240,25 +249,25 @@ pub fn Mat4(comptime T: type) type {
         pub fn mulMat4(self: Self, other: Self) Self {
             const result = Self {
                 .data = .{
-                    self.data[0] * other.data[ 0] + self.data[4] * other.data[ 1] + self.data[ 8] * other.data[ 2] + self.data[12] * self.data[ 3], // data[0]
-                    self.data[1] * other.data[ 0] + self.data[5] * other.data[ 1] + self.data[ 9] * other.data[ 2] + self.data[13] * self.data[ 3], // data[1]
-                    self.data[2] * other.data[ 0] + self.data[6] * other.data[ 1] + self.data[10] * other.data[ 2] + self.data[14] * self.data[ 3], // data[2]
-                    self.data[3] * other.data[ 0] + self.data[7] * other.data[ 1] + self.data[11] * other.data[ 2] + self.data[15] * self.data[ 3], // data[3]
+                    self.data[0] * other.data[ 0] + self.data[4] * other.data[ 1] + self.data[ 8] * other.data[ 2] + self.data[12] * other.data[ 3], // data[0]
+                    self.data[1] * other.data[ 0] + self.data[5] * other.data[ 1] + self.data[ 9] * other.data[ 2] + self.data[13] * other.data[ 3], // data[1]
+                    self.data[2] * other.data[ 0] + self.data[6] * other.data[ 1] + self.data[10] * other.data[ 2] + self.data[14] * other.data[ 3], // data[2]
+                    self.data[3] * other.data[ 0] + self.data[7] * other.data[ 1] + self.data[11] * other.data[ 2] + self.data[15] * other.data[ 3], // data[3]
 
-                    self.data[0] * other.data[ 4] + self.data[4] * other.data[ 5] + self.data[ 8] * other.data[ 6] + self.data[12] * self.data[ 7], // data[4]
-                    self.data[1] * other.data[ 4] + self.data[5] * other.data[ 5] + self.data[ 9] * other.data[ 6] + self.data[13] * self.data[ 7], // data[5]
-                    self.data[2] * other.data[ 4] + self.data[6] * other.data[ 5] + self.data[10] * other.data[ 6] + self.data[14] * self.data[ 7], // data[6]
-                    self.data[3] * other.data[ 4] + self.data[7] * other.data[ 5] + self.data[11] * other.data[ 6] + self.data[15] * self.data[ 7], // data[7]
+                    self.data[0] * other.data[ 4] + self.data[4] * other.data[ 5] + self.data[ 8] * other.data[ 6] + self.data[12] * other.data[ 7], // data[4]
+                    self.data[1] * other.data[ 4] + self.data[5] * other.data[ 5] + self.data[ 9] * other.data[ 6] + self.data[13] * other.data[ 7], // data[5]
+                    self.data[2] * other.data[ 4] + self.data[6] * other.data[ 5] + self.data[10] * other.data[ 6] + self.data[14] * other.data[ 7], // data[6]
+                    self.data[3] * other.data[ 4] + self.data[7] * other.data[ 5] + self.data[11] * other.data[ 6] + self.data[15] * other.data[ 7], // data[7]
 
-                    self.data[0] * other.data[ 8] + self.data[4] * other.data[ 9] + self.data[ 8] * other.data[10] + self.data[12] * self.data[11], // data[8]
-                    self.data[1] * other.data[ 8] + self.data[5] * other.data[ 9] + self.data[ 9] * other.data[10] + self.data[13] * self.data[11], // data[9]
-                    self.data[2] * other.data[ 8] + self.data[6] * other.data[ 9] + self.data[10] * other.data[10] + self.data[14] * self.data[11], // data[10]
-                    self.data[3] * other.data[ 8] + self.data[7] * other.data[ 9] + self.data[11] * other.data[10] + self.data[15] * self.data[11], // data[11]
+                    self.data[0] * other.data[ 8] + self.data[4] * other.data[ 9] + self.data[ 8] * other.data[10] + self.data[12] * other.data[11], // data[8]
+                    self.data[1] * other.data[ 8] + self.data[5] * other.data[ 9] + self.data[ 9] * other.data[10] + self.data[13] * other.data[11], // data[9]
+                    self.data[2] * other.data[ 8] + self.data[6] * other.data[ 9] + self.data[10] * other.data[10] + self.data[14] * other.data[11], // data[10]
+                    self.data[3] * other.data[ 8] + self.data[7] * other.data[ 9] + self.data[11] * other.data[10] + self.data[15] * other.data[11], // data[11]
 
-                    self.data[0] * other.data[12] + self.data[4] * other.data[13] + self.data[ 8] * other.data[15] + self.data[12] * self.data[15], // data[12]
-                    self.data[1] * other.data[12] + self.data[5] * other.data[13] + self.data[ 9] * other.data[15] + self.data[13] * self.data[15], // data[13]
-                    self.data[2] * other.data[12] + self.data[6] * other.data[13] + self.data[10] * other.data[15] + self.data[14] * self.data[15], // data[14]
-                    self.data[3] * other.data[12] + self.data[7] * other.data[13] + self.data[11] * other.data[15] + self.data[15] * self.data[15], // data[15]
+                    self.data[0] * other.data[12] + self.data[4] * other.data[13] + self.data[ 8] * other.data[14] + self.data[12] * other.data[15], // data[12]
+                    self.data[1] * other.data[12] + self.data[5] * other.data[13] + self.data[ 9] * other.data[14] + self.data[13] * other.data[15], // data[13]
+                    self.data[2] * other.data[12] + self.data[6] * other.data[13] + self.data[10] * other.data[14] + self.data[14] * other.data[15], // data[14]
+                    self.data[3] * other.data[12] + self.data[7] * other.data[13] + self.data[11] * other.data[14] + self.data[15] * other.data[15], // data[15]
                 }
             };
 
@@ -282,7 +291,8 @@ pub fn Mat4(comptime T: type) type {
             return m.mulMat4(Self.translate(eye.negate()));
         }
 
-        pub fn perspective(fov_radians: f32, aspect: f32, near: f32, far: f32) Self {
+        pub fn perspective(fov_degrees: f32, aspect: f32, near: f32, far: f32) Self {
+            const fov_radians: f32 = fov_degrees *  0.0174532925;
             const q: f32 = 1.0 / std.math.tan(0.5 * fov_radians);
             const a: f32 = q / aspect;
             const b: f32 = (near + far) / (near - far);
