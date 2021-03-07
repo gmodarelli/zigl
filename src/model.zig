@@ -63,8 +63,8 @@ pub fn loadModel(allocator: *std.mem.Allocator, obj_path: []const u8) ![]Vertex 
             var i: u8 = 0;
             while (tonkeized_uv.next()) |value| {
                 switch (i) {
-                    0 => uv.x = try std.fmt.parseFloat(f32, value),
-                    1 => uv.y = try std.fmt.parseFloat(f32, value),
+                    0 => uv.y = try std.fmt.parseFloat(f32, value),
+                    1 => uv.x = try std.fmt.parseFloat(f32, value),
                     else => {},
                 }
 

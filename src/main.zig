@@ -45,7 +45,7 @@ const fragmentShaderSource: [:0]const u8 =
     \\layout (location = 1) in vec3 normal;
     \\out vec4 color;
     \\void main() {
-    \\  color = vec4(uv.xy, 0.0f, 1.0f);
+    \\  color = vec4(normal * 0.5f + 0.5f, 1.0f);
     \\};
 ;
 
@@ -105,21 +105,21 @@ pub fn main() !void {
         .proj_matrix = Mat4(f32).perspective(60.0, @intToFloat(f32, SCR_WIDTH) / @intToFloat(f32, SCR_HEIGHT), 0.001, 1000.0),
     };
 
-    var cube_mesh = try model.loadModel(global_allocator, "data/models/cube.obj");
-    var cube_position = Vec3(f32).init(0, 0, -10);
-    var cube_scale = Vec3(f32).init(1, 1, 1);
-    var cube_rotation = Vec3(f32).init(0, 0, 0);
-    var cube_transform = ModelTransform {
-        .model_matrix = Mat4(f32).TRS(cube_position, cube_rotation, cube_scale),
+    var suzanne_mesh = try model.loadModel(global_allocator, "data/models/suzanne.obj");
+    var suzanne_position = Vec3(f32).init(0, 0, -5);
+    var suzanne_scale = Vec3(f32).init(1, 1, 1);
+    var suzanne_rotation = Vec3(f32).init(0, 0, 0);
+    var suzanne_transform = ModelTransform {
+        .model_matrix = Mat4(f32).TRS(suzanne_position, suzanne_rotation, suzanne_scale),
     };
 
     var scene_uniform_buffer: GLuint = undefined;
     glCreateBuffers(1, &scene_uniform_buffer);
     glNamedBufferStorage(scene_uniform_buffer, @intCast(c_longlong, @sizeOf(SceneParams)), &scene_params, 0);
 
-    var cube_uniform_buffer: GLuint = undefined;
-    glCreateBuffers(1, &cube_uniform_buffer);
-    glNamedBufferStorage(cube_uniform_buffer, @intCast(c_longlong, @sizeOf(ModelTransform)), &cube_transform, GL_DYNAMIC_STORAGE_BIT);
+    var suzanne_uniform_buffer: GLuint = undefined;
+    glCreateBuffers(1, &suzanne_uniform_buffer);
+    glNamedBufferStorage(suzanne_uniform_buffer, @intCast(c_longlong, @sizeOf(ModelTransform)), &suzanne_transform, GL_DYNAMIC_STORAGE_BIT);
 
     var vao: GLuint = undefined;
     var vbo: GLuint = undefined;
@@ -130,7 +130,7 @@ pub fn main() !void {
 
     // Allocate and initialize a buffer object
     glCreateBuffers(1, &vbo);
-    glNamedBufferStorage(vbo, @intCast(c_longlong, @sizeOf(Vertex) * cube_mesh.len), cube_mesh.ptr, 0);
+    glNamedBufferStorage(vbo, @intCast(c_longlong, @sizeOf(Vertex) * suzanne_mesh.len), suzanne_mesh.ptr, 0);
 
     // Bind the buffer to the vertex array object
     glVertexArrayVertexBuffer(vao, 0, vbo, 0, @sizeOf(Vertex));
@@ -154,9 +154,9 @@ pub fn main() !void {
     var current_time = glfwGetTime();
     var last_time = current_time;
     var delta_time: f32 = 0.0;
-    var cube_transform_duration_seconds: f32 = 3.0;
-    var cube_transform_progress: f32 = 0.0;
-    var cube_transform_time_elapsed: f32 = 0.0;
+    var suzanne_rotation_duration_seconds: f32 = 2.0;
+    var suzanne_rotation_progress: f32 = 0.0;
+    var suzanne_rotation_time_elapsed: f32 = 0.0;
 
     while (glfwWindowShouldClose(window) == 0) {
         // Clear color and depth
@@ -175,25 +175,22 @@ pub fn main() !void {
 
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, scene_uniform_buffer);
 
-        // Scale the cube over time
         {
-            cube_transform_time_elapsed += delta_time;
-            cube_transform_progress = cube_transform_time_elapsed / cube_transform_duration_seconds;
-            if (cube_transform_time_elapsed >= cube_transform_duration_seconds) {
-                cube_transform_time_elapsed = 0.0;
-                cube_transform_progress = 0.0;
+            suzanne_rotation_time_elapsed += delta_time;
+            suzanne_rotation_progress = suzanne_rotation_time_elapsed / suzanne_rotation_duration_seconds;
+            if (suzanne_rotation_time_elapsed >= suzanne_rotation_duration_seconds) {
+                suzanne_rotation_time_elapsed = 0.0;
+                suzanne_rotation_progress = 0.0;
             }
 
-            cube_position.x = cube_transform_progress;
-            cube_scale.y = 0.5 + cube_transform_progress * 0.5;
-            cube_rotation.y = cube_transform_progress * 360.0;
-            cube_transform = ModelTransform {
-                .model_matrix = Mat4(f32).TRS(cube_position, cube_rotation, cube_scale),
+            suzanne_rotation.y = suzanne_rotation_progress * 360.0;
+            suzanne_transform = ModelTransform {
+                .model_matrix = Mat4(f32).TRS(suzanne_position, suzanne_rotation, suzanne_scale),
             };
-            glNamedBufferSubData(cube_uniform_buffer, 0, @intCast(c_longlong, @sizeOf(ModelTransform)), &cube_transform);
+            glNamedBufferSubData(suzanne_uniform_buffer, 0, @intCast(c_longlong, @sizeOf(ModelTransform)), &suzanne_transform);
         }
-        glBindBufferBase(GL_UNIFORM_BUFFER, 1, cube_uniform_buffer);
-        glDrawArrays(GL_TRIANGLES, 0, @intCast(c_int, cube_mesh.len));
+        glBindBufferBase(GL_UNIFORM_BUFFER, 1, suzanne_uniform_buffer);
+        glDrawArrays(GL_TRIANGLES, 0, @intCast(c_int, suzanne_mesh.len));
 
         glBindVertexArray(0);
 
@@ -206,7 +203,7 @@ pub fn main() !void {
         last_time = current_time;
     }
 
-    global_allocator.free(cube_mesh);
+    global_allocator.free(suzanne_mesh);
     const leaked = gpa.deinit();
     if (leaked) {
         std.log.debug("Memory leaked", .{});
