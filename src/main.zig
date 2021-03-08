@@ -9,13 +9,10 @@ const Vec3 = math.Vec3;
 const Mat4 = math.Mat4;
 
 const model = @import("model.zig");
-const Vertex = model.Vertex;
-const Model = model.Model;
 const PngImage = @import("textures.zig").PngImage;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 var global_allocator = &gpa.allocator;
-var c_allocator = std.heap.c_allocator;
 
 const SCR_WIDTH: u32 = 1920;
 const SCR_HEIGHT: u32 = 1080;
@@ -62,6 +59,26 @@ const ModelTransform = struct {
     model_matrix: Mat4(f32),
 };
 
+const Material = struct {
+    albedo_texture_idx: usize,
+};
+
+const Node = struct {
+    mesh_idx: usize,
+    material_idx: usize,
+    position: Vec3(f32),
+    rotation: Vec3(f32),
+    scale: Vec3(f32),
+    transform: ModelTransform,
+};
+
+const Scene = struct {
+    meshes: []model.Mesh,
+    textures: []c.GLuint,
+    materials: []Material,
+    nodes: []Node,
+};
+
 pub fn main() !void {
     const ok = c.glfwInit();
     if (ok == 0) {
@@ -100,6 +117,141 @@ pub fn main() !void {
     c.glDebugMessageCallback(opengl_debug_callback, null);
     c.glEnable(c.GL_DEBUG_OUTPUT_SYNCHRONOUS);
 
+    // Load "level/scene" simulation
+    // The idea here is to have a simple (flat) scene file format
+    // which enumerates the elements (meshes, textures, materials, lights, etc...)
+    // present in the scene in a way that we can load them in memory without
+    // the need for dynamic allocations (like ArrayList)
+    //
+    // Scene data container
+    // --------------------
+    var scene: Scene = undefined;
+    const mesh_count = 2; // TODO: This will be read for a scene file
+    scene.meshes = try global_allocator.alloc(model.Mesh, mesh_count);
+    // Load all meshes
+    // ---------------
+    var geometry: model.Geometry = undefined;
+    geometry.init(global_allocator);
+    // TODO: We will iterate over all the meses in the scene file
+    {
+        scene.meshes[0] = try geometry.loadObj("data/models/default_cube.obj");
+        scene.meshes[1] = try geometry.loadObj("data/models/suzanne.obj");
+    }
+    // Load Textures
+    // -------------
+    const texture_count = 1; // TODO: This will be read for a scene file
+    scene.textures = try global_allocator.alloc(c.GLuint, texture_count);
+    // TODO: We will iterate over all the textures in the scene file
+    {
+        const file = try std.fs.cwd().openFile("data/textures/uvgrid.png", .{});
+        var data: []u8 = try file.readToEndAlloc(global_allocator, 1024 * 1024);
+        file.close();
+        var pi = try PngImage.create(data);
+
+        c.glCreateTextures(c.GL_TEXTURE_2D, 1, &scene.textures[0]);
+        c.glTextureStorage2D(scene.textures[0], 1, c.GL_RGBA8, @intCast(c_int, pi.width), @intCast(c_int, pi.height));
+        c.glTextureSubImage2D(scene.textures[0], 0,
+                              0, 0, @intCast(c_int, pi.width), @intCast(c_int, pi.height),
+                              c.GL_RGBA, c.GL_UNSIGNED_BYTE, @ptrCast(*c_void, &pi.raw[0]));
+
+        global_allocator.free(data);
+        PngImage.destroy(&pi);
+    }
+    // Load Materials
+    // --------------
+    const material_count = 2; // TODO: This will be read for a scene file
+    scene.materials = try global_allocator.alloc(Material, material_count);
+    // TODO: We will iterate over all the materials in the scene file
+    {
+        scene.materials[0] = Material{ .albedo_texture_idx = 0, };
+        scene.materials[1] = Material{ .albedo_texture_idx = 0, };
+    }
+    // Load Nodes
+    // ----------
+    const node_count = 2; // TODO: This will be read for a scene file
+    scene.nodes = try global_allocator.alloc(Node, node_count);
+    // TODO: We will iterate over all the nodesl in the scene file
+    {
+        scene.nodes[0] = Node{
+            .mesh_idx = 0,
+            .material_idx = 0,
+            .position = Vec3(f32).init(1.5, 0, -4),
+            .rotation = Vec3(f32).init(0, 0, 0),
+            .scale = Vec3(f32).init(1, 1, 1),
+            .transform = undefined,
+        };
+        scene.nodes[0].transform = ModelTransform {
+            .model_matrix = Mat4(f32).TRS(scene.nodes[0].position, scene.nodes[0].rotation, scene.nodes[0].scale),
+        };
+
+        scene.nodes[1] = Node{
+            .mesh_idx = 1,
+            .material_idx = 1,
+            .position = Vec3(f32).init(-1.5, 0, -4),
+            .rotation = Vec3(f32).init(0, 0, 0),
+            .scale = Vec3(f32).init(1, 1, 1),
+            .transform = undefined,
+        };
+        scene.nodes[1].transform = ModelTransform {
+            .model_matrix = Mat4(f32).TRS(scene.nodes[1].position, scene.nodes[1].rotation, scene.nodes[1].scale),
+        };
+    }
+
+    // Load scene settings
+    var scene_params = SceneParams {
+        .view_matrix = Mat4(f32).lookAt(Vec3(f32).init(0, 0, 0), Vec3(f32).init(0, 0, -1), Vec3(f32).init(0, 1, 0)),
+        .proj_matrix = Mat4(f32).perspective(60.0, @intToFloat(f32, SCR_WIDTH) / @intToFloat(f32, SCR_HEIGHT), 0.001, 1000.0),
+    };
+
+    var scene_uniform_buffer: c.GLuint = undefined;
+    c.glCreateBuffers(1, &scene_uniform_buffer);
+    c.glNamedBufferStorage(scene_uniform_buffer, @intCast(c_longlong, @sizeOf(SceneParams)), &scene_params, 0);
+
+    var node_uniform_buffer: c.GLuint = undefined;
+    c.glCreateBuffers(1, &node_uniform_buffer);
+    c.glNamedBufferStorage(node_uniform_buffer, @intCast(c_longlong, @sizeOf(ModelTransform)), null, c.GL_DYNAMIC_STORAGE_BIT);
+
+    var vao: c.GLuint = undefined;
+    var vbo: c.GLuint = undefined;
+    var ebo: c.GLuint = undefined;
+
+    // Create the Vertex Array Object
+    c.glGenVertexArrays(1, &vao);
+    c.glBindVertexArray(vao);
+
+    // Upload all geometry to a vertex and index buffer on the GPU
+    {
+        // Allocate and initialize a vertex buffer object
+        c.glCreateBuffers(1, &vbo);
+        c.glNamedBufferStorage(vbo, @intCast(c_longlong, @sizeOf(model.Vertex) * geometry.vertices.items.len), geometry.vertices.items.ptr, c.GL_DYNAMIC_STORAGE_BIT);
+
+        // Allocate and initialize an index buffer object
+        c.glCreateBuffers(1, &ebo);
+        c.glNamedBufferStorage(ebo, @intCast(c_longlong, @sizeOf(u32) * geometry.indices.items.len), geometry.indices.items.ptr, 0);
+
+        // We no longer need a copy of the data on the CPU
+        geometry.deinit();
+    }
+
+    // Bind the buffer to the vertex array object
+    c.glVertexArrayVertexBuffer(vao, 0, vbo, 0, @sizeOf(model.Vertex));
+
+    // Set up two vertex attributes.
+    // Position
+    c.glVertexArrayAttribBinding(vao, 0, 0);
+    c.glVertexArrayAttribFormat(vao, 0, 3, c.GL_FLOAT, c.GL_FALSE, @byteOffsetOf(model.Vertex, "position"));
+    c.glEnableVertexAttribArray(0);
+    // Normal
+    c.glVertexArrayAttribBinding(vao, 1, 0);
+    c.glVertexArrayAttribFormat(vao, 1, 3, c.GL_FLOAT, c.GL_FALSE, @byteOffsetOf(model.Vertex, "normal"));
+    c.glEnableVertexAttribArray(1);
+    // UV
+    c.glVertexArrayAttribBinding(vao, 2, 0);
+    c.glVertexArrayAttribFormat(vao, 2, 2, c.GL_FLOAT, c.GL_FALSE, @byteOffsetOf(model.Vertex, "uv0"));
+    c.glEnableVertexAttribArray(2);
+
+    c.glBindVertexArray(0);
+
     const vertex_shader_ptr: ?[*]const u8 = vertex_shader_source.ptr;
     const fragment_shader_ptr: ?[*]const u8 = fragment_shader_source.ptr;
     const shader_program = compileShaders(vertex_shader_ptr, fragment_shader_ptr);
@@ -112,89 +264,12 @@ pub fn main() !void {
     c.glSamplerParameteri(albedo_sampler, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR_MIPMAP_LINEAR);
     c.glSamplerParameteri(albedo_sampler, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
 
-    var scene_params = SceneParams {
-        .view_matrix = Mat4(f32).lookAt(Vec3(f32).init(0, 0, 0), Vec3(f32).init(0, 0, -1), Vec3(f32).init(0, 1, 0)),
-        .proj_matrix = Mat4(f32).perspective(60.0, @intToFloat(f32, SCR_WIDTH) / @intToFloat(f32, SCR_HEIGHT), 0.001, 1000.0),
-    };
-
-    // Texture
-    var uvgrid_texture: c.GLuint = undefined;
-    {
-        const uvgrid_file = try std.fs.cwd().openFile("data/textures/uvgrid.png", .{});
-        var data: []u8 = try uvgrid_file.readToEndAlloc(global_allocator, 1024 * 1024);
-        uvgrid_file.close();
-        var uvgrid_png = try PngImage.create(data);
-
-        c.glCreateTextures(c.GL_TEXTURE_2D, 1, &uvgrid_texture);
-        c.glTextureStorage2D(uvgrid_texture, 1, c.GL_RGBA8, @intCast(c_int, uvgrid_png.width), @intCast(c_int, uvgrid_png.height));
-        c.glTextureSubImage2D(uvgrid_texture, 0,
-                              0, 0, @intCast(c_int, uvgrid_png.width), @intCast(c_int, uvgrid_png.height),
-                              c.GL_RGBA, c.GL_UNSIGNED_BYTE, @ptrCast(*c_void, &uvgrid_png.raw[0]));
-
-        global_allocator.free(data);
-        PngImage.destroy(&uvgrid_png);
-    }
-
-    var suzanne = try Model.loadObj(global_allocator, "data/models/suzanne.obj");
-    std.log.debug("Vertex count: {}", .{suzanne.vertices.len});
-    std.log.debug("Index count: {}", .{suzanne.indices.len});
-    // var suzanne_mesh = try model.loadModel(global_allocator, "data/models/suzanne.obj");
-    var suzanne_position = Vec3(f32).init(0, 0, -4);
-    var suzanne_scale = Vec3(f32).init(1, 1, 1);
-    var suzanne_rotation = Vec3(f32).init(0, 0, 0);
-    var suzanne_transform = ModelTransform {
-        .model_matrix = Mat4(f32).TRS(suzanne_position, suzanne_rotation, suzanne_scale),
-    };
-
-    var scene_uniform_buffer: c.GLuint = undefined;
-    c.glCreateBuffers(1, &scene_uniform_buffer);
-    c.glNamedBufferStorage(scene_uniform_buffer, @intCast(c_longlong, @sizeOf(SceneParams)), &scene_params, 0);
-
-    var suzanne_uniform_buffer: c.GLuint = undefined;
-    c.glCreateBuffers(1, &suzanne_uniform_buffer);
-    c.glNamedBufferStorage(suzanne_uniform_buffer, @intCast(c_longlong, @sizeOf(ModelTransform)), &suzanne_transform, c.GL_DYNAMIC_STORAGE_BIT);
-
-    var vao: c.GLuint = undefined;
-    var vbo: c.GLuint = undefined;
-    var ebo: c.GLuint = undefined;
-
-    // Create the Vertex Array Object
-    c.glGenVertexArrays(1, &vao);
-    c.glBindVertexArray(vao);
-
-    // Allocate and initialize a vertex buffer object
-    c.glCreateBuffers(1, &vbo);
-    c.glNamedBufferStorage(vbo, @intCast(c_longlong, @sizeOf(Vertex) * suzanne.vertices.len), suzanne.vertices.ptr, c.GL_DYNAMIC_STORAGE_BIT);
-
-    // Allocate and initialize an index buffer object
-    c.glCreateBuffers(1, &ebo);
-    c.glNamedBufferStorage(ebo, @intCast(c_longlong, @sizeOf(u16) * suzanne.indices.len), suzanne.indices.ptr, 0);
-
-    // Bind the buffer to the vertex array object
-    c.glVertexArrayVertexBuffer(vao, 0, vbo, 0, @sizeOf(Vertex));
-
-    // Set up two vertex attributes.
-    // Position
-    c.glVertexArrayAttribBinding(vao, 0, 0);
-    c.glVertexArrayAttribFormat(vao, 0, 3, c.GL_FLOAT, c.GL_FALSE, @byteOffsetOf(Vertex, "position"));
-    c.glEnableVertexAttribArray(0);
-    // Normal
-    c.glVertexArrayAttribBinding(vao, 1, 0);
-    c.glVertexArrayAttribFormat(vao, 1, 3, c.GL_FLOAT, c.GL_FALSE, @byteOffsetOf(Vertex, "normal"));
-    c.glEnableVertexAttribArray(1);
-    // UV
-    c.glVertexArrayAttribBinding(vao, 2, 0);
-    c.glVertexArrayAttribFormat(vao, 2, 2, c.GL_FLOAT, c.GL_FALSE, @byteOffsetOf(Vertex, "uv0"));
-    c.glEnableVertexAttribArray(2);
-
-    c.glBindVertexArray(0);
-
     var current_time = c.glfwGetTime();
     var last_time = current_time;
     var delta_time: f32 = 0.0;
-    var suzanne_rotation_duration_seconds: f32 = 4.0;
-    var suzanne_rotation_progress: f32 = 0.0;
-    var suzanne_rotation_time_elapsed: f32 = 0.0;
+    // var suzanne_rotation_duration_seconds: f32 = 4.0;
+    // var suzanne_rotation_progress: f32 = 0.0;
+    // var suzanne_rotation_time_elapsed: f32 = 0.0;
 
     while (c.glfwWindowShouldClose(window) == 0) {
         // Clear color and depth
@@ -203,7 +278,7 @@ pub fn main() !void {
         c.glClearBufferfv(c.GL_COLOR, 0, @ptrCast([*c]const c.GLfloat, &color));
         c.glClearBufferfi(c.GL_DEPTH_STENCIL, 0, 1.0, 0);
 
-        // Bind vertex buffer (this should be for all geometry)
+        // Bind vertex buffer
         c.glBindVertexArray(vao);
 
         c.glUseProgram(shader_program);
@@ -217,27 +292,29 @@ pub fn main() !void {
 
         c.glBindBufferBase(c.GL_UNIFORM_BUFFER, 0, scene_uniform_buffer);
 
-        {
-            suzanne_rotation_time_elapsed += delta_time;
-            suzanne_rotation_progress = suzanne_rotation_time_elapsed / suzanne_rotation_duration_seconds;
-            if (suzanne_rotation_time_elapsed >= suzanne_rotation_duration_seconds) {
-                suzanne_rotation_time_elapsed = 0.0;
-                suzanne_rotation_progress = 0.0;
-            }
+        // {
+        //     suzanne_rotation_time_elapsed += delta_time;
+        //     suzanne_rotation_progress = suzanne_rotation_time_elapsed / suzanne_rotation_duration_seconds;
+        //     if (suzanne_rotation_time_elapsed >= suzanne_rotation_duration_seconds) {
+        //         suzanne_rotation_time_elapsed = 0.0;
+        //         suzanne_rotation_progress = 0.0;
+        //     }
 
-            suzanne_rotation.y = suzanne_rotation_progress * 360.0;
-            suzanne_transform = ModelTransform {
-                .model_matrix = Mat4(f32).TRS(suzanne_position, suzanne_rotation, suzanne_scale),
-            };
-            c.glNamedBufferSubData(suzanne_uniform_buffer, 0, @intCast(c_longlong, @sizeOf(ModelTransform)), &suzanne_transform);
-        }
-
-        c.glBindTextureUnit(0, uvgrid_texture);
-
-        c.glBindBufferBase(c.GL_UNIFORM_BUFFER, 1, suzanne_uniform_buffer);
+        //     suzanne_rotation.y = suzanne_rotation_progress * 360.0;
+        //     suzanne_transform = ModelTransform {
+        //         .model_matrix = Mat4(f32).TRS(suzanne_position, suzanne_rotation, suzanne_scale),
+        //     };
+        //     c.glNamedBufferSubData(suzanne_uniform_buffer, 0, @intCast(c_longlong, @sizeOf(ModelTransform)), &suzanne_transform);
+        // }
 
         c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, ebo);
-        c.glDrawElements(c.GL_TRIANGLES, @intCast(c_int, suzanne.indices.len), c.GL_UNSIGNED_SHORT, @intToPtr(?*const c_void, 0));
+
+        for (scene.nodes) |node| {
+            c.glNamedBufferSubData(node_uniform_buffer, 0, @intCast(c_longlong, @sizeOf(ModelTransform)), &node.transform);
+            c.glBindBufferBase(c.GL_UNIFORM_BUFFER, 1, node_uniform_buffer);
+            c.glBindTextureUnit(0, scene.textures[scene.materials[node.material_idx].albedo_texture_idx]);
+            c.glDrawElementsBaseVertex(c.GL_TRIANGLES, @intCast(c_int, scene.meshes[node.mesh_idx].index_count), c.GL_UNSIGNED_INT, @intToPtr(?*const c_void, scene.meshes[node.mesh_idx].index_offset), @intCast(c.GLint, scene.meshes[node.mesh_idx].vertex_base));
+        }
 
         c.glBindVertexArray(0);
 
@@ -249,7 +326,11 @@ pub fn main() !void {
         last_time = current_time;
     }
 
-    Model.deinit(&suzanne);
+    global_allocator.free(scene.meshes);
+    global_allocator.free(scene.textures);
+    global_allocator.free(scene.materials);
+    global_allocator.free(scene.nodes);
+
     const leaked = gpa.deinit();
     if (leaked) {
         std.log.debug("Memory leaked", .{});

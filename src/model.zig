@@ -3,7 +3,7 @@ const math = @import("math.zig");
 const Vec2 = math.Vec2;
 const Vec3 = math.Vec3;
 
-const VertexMap = std.HashMap([]const u8, u16, std.hash_map.hashString, std.hash_map.eqlString, 80);
+const VertexMap = std.HashMap([]const u8, u32, std.hash_map.hashString, std.hash_map.eqlString, 80);
 
 pub const Vertex = struct {
     position: Vec3(f32),
@@ -11,36 +11,52 @@ pub const Vertex = struct {
     uv0: Vec2(f32),
 };
 
-pub const Model = struct {
-    vertices: [] Vertex,
-    indices: [] u16,
+pub const Mesh = struct {
+    vertex_base: u32,
+    index_offset: u32,
+    vertex_count: u32,
+    index_count: u32,
+};
+
+pub const Geometry = struct {
+    vertices: std.ArrayList(Vertex),
+    indices: std.ArrayList(u32),
     allocator: *std.mem.Allocator,
 
-    pub fn loadObj(allocator: *std.mem.Allocator, obj_path: []const u8) !Model {
-        var result: Model = undefined;
-        result.allocator = allocator;
+    pub fn init(self: *Geometry, allocator: *std.mem.Allocator) void {
+        self.allocator = allocator;
+        self.vertices = std.ArrayList(Vertex).init(self.allocator);
+        self.indices = std.ArrayList(u32).init(self.allocator);
+    }
+
+    pub fn deinit(self: *Geometry) void {
+        self.vertices.deinit();
+        self.indices.deinit();
+    }
+
+    // TODO: We should load OBJ files and convert them to an internal format
+    // that we can upload directly to the GPU.
+    pub fn loadObj(self: *Geometry, obj_path: []const u8) !Mesh {
+        var result: Mesh = undefined;
+        result.vertex_base = @intCast(u32, self.vertices.items.len);
+        result.index_offset = @intCast(u32, self.indices.items.len);
 
         const cwd = std.fs.cwd();
         const obj_file = try cwd.openFile(obj_path, .{});
         defer obj_file.close();
 
-        const data: []u8 = try obj_file.readToEndAlloc(allocator, 1024 * 1024);
-        defer allocator.free(data);
+        const data: []u8 = try obj_file.readToEndAlloc(self.allocator, 1024 * 1024);
+        defer self.allocator.free(data);
 
-        var vertex_map = VertexMap.init(allocator);
+        var vertex_map = VertexMap.init(self.allocator);
         defer vertex_map.deinit();
-        var positions = std.ArrayList(Vec3(f32)).init(allocator);
+
+        var positions = std.ArrayList(Vec3(f32)).init(self.allocator);
         defer positions.deinit();
-        var uvs = std.ArrayList(Vec2(f32)).init(allocator);
+        var uvs = std.ArrayList(Vec2(f32)).init(self.allocator);
         defer uvs.deinit();
-        var normals = std.ArrayList(Vec3(f32)).init(allocator);
+        var normals = std.ArrayList(Vec3(f32)).init(self.allocator);
         defer normals.deinit();
-
-        var vertices = std.ArrayList(Vertex).init(allocator);
-        defer vertices.deinit();
-        var indices = std.ArrayList(u16).init(allocator);
-        defer indices.deinit();
-
 
         var iterator = std.mem.tokenize(data, "\n");
         while (iterator.next()) |line| {
@@ -107,7 +123,7 @@ pub const Model = struct {
                 while (faces.next()) |face| {
                     var index = vertex_map.get(face);
                     if (index != null) {
-                        try indices.append(index.?);
+                        try self.indices.append(index.?);
                         continue;
                     } 
 
@@ -128,24 +144,17 @@ pub const Model = struct {
                         i += 1;
                     }
 
-                    const new_index: u16 = @intCast(u16, vertices.items.len);
+                    const new_index: u32 = @intCast(u32, self.vertices.items.len) - result.vertex_base;
                     try vertex_map.putNoClobber(face, new_index);
-                    try indices.append(new_index);
-                    try vertices.append(vertex);
+                    try self.indices.append(new_index);
+                    try self.vertices.append(vertex);
                 }
             }
         }
 
-        result.vertices = try allocator.alloc(Vertex, vertices.items.len);
-        std.mem.copy(Vertex, result.vertices, vertices.items);
-        result.indices = try allocator.alloc(u16, indices.items.len);
-        std.mem.copy(u16, result.indices, indices.items);
+        result.index_count = @intCast(u32, self.indices.items.len) - result.index_offset;
+        result.vertex_count = @intCast(u32, self.vertices.items.len) - result.vertex_base;
 
         return result;
-    }
-
-    pub fn deinit(model: *Model) void {
-        model.allocator.free(model.vertices);
-        model.allocator.free(model.indices);
     }
 };
