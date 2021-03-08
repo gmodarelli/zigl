@@ -10,6 +10,7 @@ const Mat4 = math.Mat4;
 
 const model = @import("model.zig");
 const Vertex = model.Vertex;
+const Model = model.Model;
 const PngImage = @import("textures.zig").PngImage;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -20,7 +21,7 @@ const SCR_WIDTH: u32 = 1920;
 const SCR_HEIGHT: u32 = 1080;
 
 // [:0]const u8 means null-terminated array of chars
-const vertexShaderSource: [:0]const u8 =
+const vertex_shader_source: [:0]const u8 =
     \\#version 450 core
     \\layout (location = 0) in vec3 position;
     \\layout (location = 1) in vec3 normal;
@@ -41,7 +42,7 @@ const vertexShaderSource: [:0]const u8 =
     \\};
 ;
 
-const fragmentShaderSource: [:0]const u8 =
+const fragment_shader_source: [:0]const u8 =
     \\#version 450 core
     \\layout (location = 0) in vec2 uv;
     \\layout (location = 1) in vec3 normal;
@@ -99,9 +100,17 @@ pub fn main() !void {
     c.glDebugMessageCallback(opengl_debug_callback, null);
     c.glEnable(c.GL_DEBUG_OUTPUT_SYNCHRONOUS);
 
-    const vertexShaderPtr: ?[*]const u8 = vertexShaderSource.ptr;
-    const fragmentShaderPtr: ?[*]const u8 = fragmentShaderSource.ptr;
-    const shaderProgram = compileShaders(vertexShaderPtr, fragmentShaderPtr);
+    const vertex_shader_ptr: ?[*]const u8 = vertex_shader_source.ptr;
+    const fragment_shader_ptr: ?[*]const u8 = fragment_shader_source.ptr;
+    const shader_program = compileShaders(vertex_shader_ptr, fragment_shader_ptr);
+
+    // Create samplers for the program
+    var albedo_sampler: c.GLuint = undefined;
+    c.glCreateSamplers(1, &albedo_sampler);
+    c.glSamplerParameteri(albedo_sampler, c.GL_TEXTURE_WRAP_S, c.GL_CLAMP_TO_EDGE);
+    c.glSamplerParameteri(albedo_sampler, c.GL_TEXTURE_WRAP_T, c.GL_CLAMP_TO_EDGE);
+    c.glSamplerParameteri(albedo_sampler, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR_MIPMAP_LINEAR);
+    c.glSamplerParameteri(albedo_sampler, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
 
     var scene_params = SceneParams {
         .view_matrix = Mat4(f32).lookAt(Vec3(f32).init(0, 0, 0), Vec3(f32).init(0, 0, -1), Vec3(f32).init(0, 1, 0)),
@@ -115,9 +124,6 @@ pub fn main() !void {
         var data: []u8 = try uvgrid_file.readToEndAlloc(global_allocator, 1024 * 1024);
         uvgrid_file.close();
         var uvgrid_png = try PngImage.create(data);
-        std.log.debug("PNG size: {}x{}", .{uvgrid_png.width, uvgrid_png.height});
-        std.log.debug("Data ptr: {}", .{@ptrCast(*c_void, &uvgrid_png.raw[0])});
-        std.log.debug("Data len: {}", .{uvgrid_png.raw.len});
 
         c.glCreateTextures(c.GL_TEXTURE_2D, 1, &uvgrid_texture);
         c.glTextureStorage2D(uvgrid_texture, 1, c.GL_RGBA8, @intCast(c_int, uvgrid_png.width), @intCast(c_int, uvgrid_png.height));
@@ -129,7 +135,10 @@ pub fn main() !void {
         PngImage.destroy(&uvgrid_png);
     }
 
-    var suzanne_mesh = try model.loadModel(global_allocator, "data/models/suzanne.obj");
+    var suzanne = try Model.loadObj(global_allocator, "data/models/suzanne.obj");
+    std.log.debug("Vertex count: {}", .{suzanne.vertices.len});
+    std.log.debug("Index count: {}", .{suzanne.indices.len});
+    // var suzanne_mesh = try model.loadModel(global_allocator, "data/models/suzanne.obj");
     var suzanne_position = Vec3(f32).init(0, 0, -4);
     var suzanne_scale = Vec3(f32).init(1, 1, 1);
     var suzanne_rotation = Vec3(f32).init(0, 0, 0);
@@ -147,14 +156,19 @@ pub fn main() !void {
 
     var vao: c.GLuint = undefined;
     var vbo: c.GLuint = undefined;
+    var ebo: c.GLuint = undefined;
 
     // Create the Vertex Array Object
     c.glGenVertexArrays(1, &vao);
     c.glBindVertexArray(vao);
 
-    // Allocate and initialize a buffer object
+    // Allocate and initialize a vertex buffer object
     c.glCreateBuffers(1, &vbo);
-    c.glNamedBufferStorage(vbo, @intCast(c_longlong, @sizeOf(Vertex) * suzanne_mesh.len), suzanne_mesh.ptr, c.GL_DYNAMIC_STORAGE_BIT);
+    c.glNamedBufferStorage(vbo, @intCast(c_longlong, @sizeOf(Vertex) * suzanne.vertices.len), suzanne.vertices.ptr, c.GL_DYNAMIC_STORAGE_BIT);
+
+    // Allocate and initialize an index buffer object
+    c.glCreateBuffers(1, &ebo);
+    c.glNamedBufferStorage(ebo, @intCast(c_longlong, @sizeOf(u16) * suzanne.indices.len), suzanne.indices.ptr, 0);
 
     // Bind the buffer to the vertex array object
     c.glVertexArrayVertexBuffer(vao, 0, vbo, 0, @sizeOf(Vertex));
@@ -192,9 +206,14 @@ pub fn main() !void {
         // Bind vertex buffer (this should be for all geometry)
         c.glBindVertexArray(vao);
 
-        c.glUseProgram(shaderProgram);
+        c.glUseProgram(shader_program);
         c.glFrontFace(c.GL_CCW);
+        c.glEnable(c.GL_CULL_FACE);
         c.glEnable(c.GL_DEPTH_TEST);
+        c.glDepthFunc(c.GL_LEQUAL);
+
+        // Binding program samplers
+        c.glBindSampler(0, albedo_sampler);
 
         c.glBindBufferBase(c.GL_UNIFORM_BUFFER, 0, scene_uniform_buffer);
 
@@ -213,26 +232,24 @@ pub fn main() !void {
             c.glNamedBufferSubData(suzanne_uniform_buffer, 0, @intCast(c_longlong, @sizeOf(ModelTransform)), &suzanne_transform);
         }
 
-        // TODO: Instead of binding the texture, we should bind a sampler
-        // so we can set sampler settings (wrap mode, filtering, mip maps, etc...)
-        // on a per-material basis.
         c.glBindTextureUnit(0, uvgrid_texture);
 
         c.glBindBufferBase(c.GL_UNIFORM_BUFFER, 1, suzanne_uniform_buffer);
-        c.glDrawArrays(c.GL_TRIANGLES, 0, @intCast(c_int, suzanne_mesh.len));
+
+        c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, ebo);
+        c.glDrawElements(c.GL_TRIANGLES, @intCast(c_int, suzanne.indices.len), c.GL_UNSIGNED_SHORT, @intToPtr(?*const c_void, 0));
 
         c.glBindVertexArray(0);
 
         c.glfwSwapBuffers(window);
         c.glfwPollEvents();
 
-        // std.log.debug("dt {}", .{delta_time});
         current_time = c.glfwGetTime();
         delta_time = @floatCast(f32, current_time - last_time);
         last_time = current_time;
     }
 
-    global_allocator.free(suzanne_mesh);
+    Model.deinit(&suzanne);
     const leaked = gpa.deinit();
     if (leaked) {
         std.log.debug("Memory leaked", .{});
@@ -240,42 +257,42 @@ pub fn main() !void {
 }
 
 // TODO: Return the default error shader instead of panicing
-fn compileShaders(vertexShaderPtr: ?[*]const u8, fragmentShaderPtr: ?[*]const u8) c.GLuint {
+fn compileShaders(vertex_shader_ptr: ?[*]const u8, fragment_shader_ptr: ?[*]const u8) c.GLuint {
     var success: c_int = undefined;
     var infoLog: [512]u8 = undefined;
 
-    const vertexShader = c.glCreateShader(c.GL_VERTEX_SHADER);
-    c.glShaderSource(vertexShader, 1, &vertexShaderPtr, null);
-    c.glCompileShader(vertexShader);
-    c.glGetShaderiv(vertexShader, c.GL_COMPILE_STATUS, &success);
+    const vertex_shader = c.glCreateShader(c.GL_VERTEX_SHADER);
+    c.glShaderSource(vertex_shader, 1, &vertex_shader_ptr, null);
+    c.glCompileShader(vertex_shader);
+    c.glGetShaderiv(vertex_shader, c.GL_COMPILE_STATUS, &success);
     if (success == 0) {
-        c.glGetShaderInfoLog(vertexShader, 512, null, &infoLog);
+        c.glGetShaderInfoLog(vertex_shader, 512, null, &infoLog);
         panic("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n{}\n", .{infoLog});
     }
 
-    const fragmentShader = c.glCreateShader(c.GL_FRAGMENT_SHADER);
-    c.glShaderSource(fragmentShader, 1, &fragmentShaderPtr, null);
-    c.glCompileShader(fragmentShader);
-    c.glGetShaderiv(fragmentShader, c.GL_COMPILE_STATUS, &success);
+    const fragment_shader = c.glCreateShader(c.GL_FRAGMENT_SHADER);
+    c.glShaderSource(fragment_shader, 1, &fragment_shader_ptr, null);
+    c.glCompileShader(fragment_shader);
+    c.glGetShaderiv(fragment_shader, c.GL_COMPILE_STATUS, &success);
     if (success == 0) {
-        c.glGetShaderInfoLog(fragmentShader, 512, null, &infoLog);
+        c.glGetShaderInfoLog(fragment_shader, 512, null, &infoLog);
         panic("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n{}\n", .{infoLog});
     }
 
-    const shaderProgram = c.glCreateProgram();
-    c.glAttachShader(shaderProgram, vertexShader);
-    c.glAttachShader(shaderProgram, fragmentShader);
-    c.glLinkProgram(shaderProgram);
-    c.glGetProgramiv(shaderProgram, c.GL_LINK_STATUS, &success);
+    const shader_program = c.glCreateProgram();
+    c.glAttachShader(shader_program, vertex_shader);
+    c.glAttachShader(shader_program, fragment_shader);
+    c.glLinkProgram(shader_program);
+    c.glGetProgramiv(shader_program, c.GL_LINK_STATUS, &success);
     if (success == 0) {
-        c.glGetProgramInfoLog(shaderProgram, 512, null, &infoLog);
+        c.glGetProgramInfoLog(shader_program, 512, null, &infoLog);
         panic("ERROR::SHADER::PROGRAM::LINKING_FAILED\n{}\n", .{infoLog});
     }
 
-    c.glDeleteShader(vertexShader);
-    c.glDeleteShader(fragmentShader);
+    c.glDeleteShader(vertex_shader);
+    c.glDeleteShader(fragment_shader);
 
-    return shaderProgram;
+    return shader_program;
 }
 
 pub fn opengl_debug_callback(source: c.GLenum, messageType: c.GLenum, id: c.GLuint, severity: c.GLenum, length: c.GLsizei, message: [*c]const c.GLchar, userParam: ?*const c.GLvoid) callconv(.C) void {
