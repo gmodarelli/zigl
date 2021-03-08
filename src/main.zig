@@ -267,9 +267,6 @@ pub fn main() !void {
     var current_time = c.glfwGetTime();
     var last_time = current_time;
     var delta_time: f32 = 0.0;
-    // var suzanne_rotation_duration_seconds: f32 = 4.0;
-    // var suzanne_rotation_progress: f32 = 0.0;
-    // var suzanne_rotation_time_elapsed: f32 = 0.0;
 
     while (c.glfwWindowShouldClose(window) == 0) {
         // Clear color and depth
@@ -291,21 +288,6 @@ pub fn main() !void {
         c.glBindSampler(0, albedo_sampler);
 
         c.glBindBufferBase(c.GL_UNIFORM_BUFFER, 0, scene_uniform_buffer);
-
-        // {
-        //     suzanne_rotation_time_elapsed += delta_time;
-        //     suzanne_rotation_progress = suzanne_rotation_time_elapsed / suzanne_rotation_duration_seconds;
-        //     if (suzanne_rotation_time_elapsed >= suzanne_rotation_duration_seconds) {
-        //         suzanne_rotation_time_elapsed = 0.0;
-        //         suzanne_rotation_progress = 0.0;
-        //     }
-
-        //     suzanne_rotation.y = suzanne_rotation_progress * 360.0;
-        //     suzanne_transform = ModelTransform {
-        //         .model_matrix = Mat4(f32).TRS(suzanne_position, suzanne_rotation, suzanne_scale),
-        //     };
-        //     c.glNamedBufferSubData(suzanne_uniform_buffer, 0, @intCast(c_longlong, @sizeOf(ModelTransform)), &suzanne_transform);
-        // }
 
         c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, ebo);
 
