@@ -3,36 +3,67 @@ const Builder = std.build.Builder;
 const builtin = @import("builtin");
 
 pub fn build(b: *Builder) void {
-    var exe = b.addExecutable("zigopengl", "src/main.zig");
-    exe.setBuildMode(b.standardReleaseOptions());
+    // Main application
+    // ================
+    mainApp(b);
+
+    // Tools:
+    // Obj -> Bin
+    objToBin(b);
+}
+
+fn mainApp(b: *Builder) void {
+    var app = b.addExecutable("zigl", "src/main.zig");
+    app.setBuildMode(b.standardReleaseOptions());
 
     // Includes
-    exe.addIncludeDir("third_party/include");
+    app.addIncludeDir("third_party/include");
 
     // Sources
-    exe.addCSourceFile("third_party/src/glad.c", &[_][]const u8{"-std=c99"});
-    exe.addCSourceFile("third_party/src/stb_image_implementation.c", &[_][]const u8{"-std=c99"});
+    app.addCSourceFile("third_party/src/glad.c", &[_][]const u8{"-std=c99"});
+    app.addCSourceFile("third_party/src/stb_image_implementation.c", &[_][]const u8{"-std=c99"});
 
     // Libraries
-    exe.linkLibC();
-    exe.addLibPath("third_party/lib");
-    exe.linkSystemLibrary("glfw3");
+    app.linkLibC();
+    app.addLibPath("third_party/lib");
+    app.linkSystemLibrary("glfw3");
 
     switch (builtin.os.tag) {
         .windows => {
-            exe.linkSystemLibrary("kernel32");
-            exe.linkSystemLibrary("user32");
-            exe.linkSystemLibrary("shell32");
-            exe.linkSystemLibrary("gdi32");
-            exe.linkSystemLibrary("opengl32");
+            app.linkSystemLibrary("kernel32");
+            app.linkSystemLibrary("user32");
+            app.linkSystemLibrary("shell32");
+            app.linkSystemLibrary("gdi32");
+            app.linkSystemLibrary("opengl32");
         },
         else => {
             @compileError("Platform not supported");
         },
     }
 
-    exe.install();
+    app.install();
 
-    b.default_step.dependOn(&exe.step);
-    b.step("learnzig", "Learning Zig").dependOn(&exe.run().step);
+    b.default_step.dependOn(&app.step);
+    b.step("mainapp", "Main Application").dependOn(&app.run().step);
+}
+
+fn objToBin(b: *Builder) void {
+    var app = b.addExecutable("obj_to_bin", "src/obj_to_bin.zig");
+    app.setBuildMode(b.standardReleaseOptions());
+
+    switch (builtin.os.tag) {
+        .windows => {
+            app.linkSystemLibrary("kernel32");
+            app.linkSystemLibrary("user32");
+            app.linkSystemLibrary("shell32");
+        },
+        else => {
+            @compileError("Platform not supported");
+        },
+    }
+
+    app.install();
+
+    b.default_step.dependOn(&app.step);
+    b.step("obj_to_bin", "Obj 2 Bin Conversion").dependOn(&app.run().step);
 }
