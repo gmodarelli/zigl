@@ -3,6 +3,7 @@ const builtin = @import("builtin");
 const panic = std.debug.panic;
 
 const c = @import("c.zig");
+const shaders = @import("shaders.zig");
 
 const math = @import("math.zig");
 const Vec3 = math.Vec3;
@@ -16,39 +17,6 @@ var global_allocator = &gpa.allocator;
 
 const SCR_WIDTH: u32 = 1920;
 const SCR_HEIGHT: u32 = 1080;
-
-// [:0]const u8 means null-terminated array of chars
-const vertex_shader_source: [:0]const u8 =
-    \\#version 450 core
-    \\layout (location = 0) in vec3 position;
-    \\layout (location = 1) in vec3 normal;
-    \\layout (location = 2) in vec2 uv;
-    \\layout (location = 0) out vec2 outUV;
-    \\layout (location = 1) out vec3 outNormal;
-    \\layout (std140, binding = 0) uniform SceneTransformBlock {
-    \\  mat4 view_matrix;
-    \\  mat4 proj_matrix;
-    \\} scene;
-    \\layout (std140, binding = 1) uniform ObjectTransformBlock {
-    \\  mat4 model_matrix;
-    \\} object;
-    \\void main() {
-    \\  gl_Position = scene.proj_matrix * scene.view_matrix * object.model_matrix * vec4(position.xyz, 1.0);
-    \\  outUV = uv;
-    \\  outNormal = normal;
-    \\};
-;
-
-const fragment_shader_source: [:0]const u8 =
-    \\#version 450 core
-    \\layout (location = 0) in vec2 uv;
-    \\layout (location = 1) in vec3 normal;
-    \\layout (binding = 0) uniform sampler2D albedo;
-    \\out vec4 color;
-    \\void main() {
-    \\  color = texture(albedo, uv);
-    \\};
-;
 
 const SceneParams = struct {
     view_matrix: Mat4(f32),
@@ -254,9 +222,7 @@ pub fn main() !void {
 
     c.glBindVertexArray(0);
 
-    const vertex_shader_ptr: ?[*]const u8 = vertex_shader_source.ptr;
-    const fragment_shader_ptr: ?[*]const u8 = fragment_shader_source.ptr;
-    const shader_program = compileShaders(vertex_shader_ptr, fragment_shader_ptr);
+    const shader_program = try shaders.createProgram(global_allocator, "data/shaders/uber_vertex.glsl", "data/shaders/uber_fragment.glsl");
 
     // Create samplers for the program
     var albedo_sampler: c.GLuint = undefined;
@@ -319,45 +285,6 @@ pub fn main() !void {
     if (leaked) {
         std.log.debug("Memory leaked", .{});
     }
-}
-
-// TODO: Return the default error shader instead of panicing
-fn compileShaders(vertex_shader_ptr: ?[*]const u8, fragment_shader_ptr: ?[*]const u8) c.GLuint {
-    var success: c_int = undefined;
-    var infoLog: [512]u8 = undefined;
-
-    const vertex_shader = c.glCreateShader(c.GL_VERTEX_SHADER);
-    c.glShaderSource(vertex_shader, 1, &vertex_shader_ptr, null);
-    c.glCompileShader(vertex_shader);
-    c.glGetShaderiv(vertex_shader, c.GL_COMPILE_STATUS, &success);
-    if (success == 0) {
-        c.glGetShaderInfoLog(vertex_shader, 512, null, &infoLog);
-        panic("Vertex shader compilation failed:\n{}\n", .{infoLog});
-    }
-
-    const fragment_shader = c.glCreateShader(c.GL_FRAGMENT_SHADER);
-    c.glShaderSource(fragment_shader, 1, &fragment_shader_ptr, null);
-    c.glCompileShader(fragment_shader);
-    c.glGetShaderiv(fragment_shader, c.GL_COMPILE_STATUS, &success);
-    if (success == 0) {
-        c.glGetShaderInfoLog(fragment_shader, 512, null, &infoLog);
-        panic("Fragment shader compilation failed:\n{}\n", .{infoLog});
-    }
-
-    const shader_program = c.glCreateProgram();
-    c.glAttachShader(shader_program, vertex_shader);
-    c.glAttachShader(shader_program, fragment_shader);
-    c.glLinkProgram(shader_program);
-    c.glGetProgramiv(shader_program, c.GL_LINK_STATUS, &success);
-    if (success == 0) {
-        c.glGetProgramInfoLog(shader_program, 512, null, &infoLog);
-        panic("Program linking failed:\n{}\n", .{infoLog});
-    }
-
-    c.glDeleteShader(vertex_shader);
-    c.glDeleteShader(fragment_shader);
-
-    return shader_program;
 }
 
 const GLDebugSource = enum(u32) {
