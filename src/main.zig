@@ -150,9 +150,7 @@ pub fn main() !void {
 
         c.glCreateTextures(c.GL_TEXTURE_2D, 1, &scene.textures[0]);
         c.glTextureStorage2D(scene.textures[0], 1, c.GL_RGBA8, @intCast(c_int, pi.width), @intCast(c_int, pi.height));
-        c.glTextureSubImage2D(scene.textures[0], 0,
-                              0, 0, @intCast(c_int, pi.width), @intCast(c_int, pi.height),
-                              c.GL_RGBA, c.GL_UNSIGNED_BYTE, @ptrCast(*c_void, &pi.raw[0]));
+        c.glTextureSubImage2D(scene.textures[0], 0, 0, 0, @intCast(c_int, pi.width), @intCast(c_int, pi.height), c.GL_RGBA, c.GL_UNSIGNED_BYTE, @ptrCast(*c_void, &pi.raw[0]));
 
         global_allocator.free(data);
         PngImage.destroy(&pi);
@@ -163,8 +161,12 @@ pub fn main() !void {
     scene.materials = try global_allocator.alloc(Material, material_count);
     // TODO: We will iterate over all the materials in the scene file
     {
-        scene.materials[0] = Material{ .albedo_texture_idx = 0, };
-        scene.materials[1] = Material{ .albedo_texture_idx = 0, };
+        scene.materials[0] = Material{
+            .albedo_texture_idx = 0,
+        };
+        scene.materials[1] = Material{
+            .albedo_texture_idx = 0,
+        };
     }
     // Load Nodes
     // ----------
@@ -180,7 +182,7 @@ pub fn main() !void {
             .scale = Vec3(f32).init(1, 1, 1),
             .transform = undefined,
         };
-        scene.nodes[0].transform = ModelTransform {
+        scene.nodes[0].transform = ModelTransform{
             .model_matrix = Mat4(f32).TRS(scene.nodes[0].position, scene.nodes[0].rotation, scene.nodes[0].scale),
         };
 
@@ -192,20 +194,20 @@ pub fn main() !void {
             .scale = Vec3(f32).init(1, 1, 1),
             .transform = undefined,
         };
-        scene.nodes[1].transform = ModelTransform {
+        scene.nodes[1].transform = ModelTransform{
             .model_matrix = Mat4(f32).TRS(scene.nodes[1].position, scene.nodes[1].rotation, scene.nodes[1].scale),
         };
     }
 
     // Load scene settings
-    var scene_params = SceneParams {
+    var scene_params = SceneParams{
         .view_matrix = Mat4(f32).lookAt(Vec3(f32).init(0, 0, 0), Vec3(f32).init(0, 0, -1), Vec3(f32).init(0, 1, 0)),
         .proj_matrix = Mat4(f32).perspective(60.0, @intToFloat(f32, SCR_WIDTH) / @intToFloat(f32, SCR_HEIGHT), 0.001, 1000.0),
     };
 
     var scene_uniform_buffer: c.GLuint = undefined;
     c.glCreateBuffers(1, &scene_uniform_buffer);
-    c.glNamedBufferStorage(scene_uniform_buffer, @intCast(c_longlong, @sizeOf(SceneParams)), &scene_params, 0);
+    c.glNamedBufferStorage(scene_uniform_buffer, @intCast(c_longlong, @sizeOf(SceneParams)), &scene_params, c.GL_DYNAMIC_STORAGE_BIT);
 
     var node_uniform_buffer: c.GLuint = undefined;
     c.glCreateBuffers(1, &node_uniform_buffer);
@@ -223,7 +225,7 @@ pub fn main() !void {
     {
         // Allocate and initialize a vertex buffer object
         c.glCreateBuffers(1, &vbo);
-        c.glNamedBufferStorage(vbo, @intCast(c_longlong, @sizeOf(model.Vertex) * geometry.vertices.items.len), geometry.vertices.items.ptr, c.GL_DYNAMIC_STORAGE_BIT);
+        c.glNamedBufferStorage(vbo, @intCast(c_longlong, @sizeOf(model.Vertex) * geometry.vertices.items.len), geometry.vertices.items.ptr, 0);
 
         // Allocate and initialize an index buffer object
         c.glCreateBuffers(1, &ebo);
@@ -271,7 +273,7 @@ pub fn main() !void {
     while (c.glfwWindowShouldClose(window) == 0) {
         // Clear color and depth
         const color = [_]c.GLfloat{ 0.1, 0.1, 0.1, 1.0 };
-        const depth = [_]c.GLfloat{ 0.0 };
+        const depth = [_]c.GLfloat{0.0};
         c.glClearBufferfv(c.GL_COLOR, 0, @ptrCast([*c]const c.GLfloat, &color));
         c.glClearBufferfi(c.GL_DEPTH_STENCIL, 0, 1.0, 0);
 
@@ -330,7 +332,7 @@ fn compileShaders(vertex_shader_ptr: ?[*]const u8, fragment_shader_ptr: ?[*]cons
     c.glGetShaderiv(vertex_shader, c.GL_COMPILE_STATUS, &success);
     if (success == 0) {
         c.glGetShaderInfoLog(vertex_shader, 512, null, &infoLog);
-        panic("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n{}\n", .{infoLog});
+        panic("Vertex shader compilation failed:\n{}\n", .{infoLog});
     }
 
     const fragment_shader = c.glCreateShader(c.GL_FRAGMENT_SHADER);
@@ -339,7 +341,7 @@ fn compileShaders(vertex_shader_ptr: ?[*]const u8, fragment_shader_ptr: ?[*]cons
     c.glGetShaderiv(fragment_shader, c.GL_COMPILE_STATUS, &success);
     if (success == 0) {
         c.glGetShaderInfoLog(fragment_shader, 512, null, &infoLog);
-        panic("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n{}\n", .{infoLog});
+        panic("Fragment shader compilation failed:\n{}\n", .{infoLog});
     }
 
     const shader_program = c.glCreateProgram();
@@ -349,7 +351,7 @@ fn compileShaders(vertex_shader_ptr: ?[*]const u8, fragment_shader_ptr: ?[*]cons
     c.glGetProgramiv(shader_program, c.GL_LINK_STATUS, &success);
     if (success == 0) {
         c.glGetProgramInfoLog(shader_program, 512, null, &infoLog);
-        panic("ERROR::SHADER::PROGRAM::LINKING_FAILED\n{}\n", .{infoLog});
+        panic("Program linking failed:\n{}\n", .{infoLog});
     }
 
     c.glDeleteShader(vertex_shader);
@@ -358,6 +360,47 @@ fn compileShaders(vertex_shader_ptr: ?[*]const u8, fragment_shader_ptr: ?[*]cons
     return shader_program;
 }
 
-pub fn opengl_debug_callback(source: c.GLenum, messageType: c.GLenum, id: c.GLuint, severity: c.GLenum, length: c.GLsizei, message: [*c]const c.GLchar, userParam: ?*const c.GLvoid) callconv(.C) void {
-    std.log.debug("{s}", .{message});
+const GLDebugSource = enum(u32) {
+    api = 0x8246,
+    window_system = 0x8247,
+    shader_compiler = 0x8248,
+    third_party = 0x8249,
+    application = 0x824a,
+    other = 0x824b,
+};
+
+const GLDebugType = enum(u32) {
+    @"error" = 0x824c,
+    deprecated_behavior = 0x824d,
+    undefined_behavior = 0x824e,
+    portability = 0x824f,
+    performance = 0x8250,
+    other = 0x8251,
+    // Not sure about these 3
+    marker = 0x8268,
+    push_group = 0x8269,
+    pop_group = 0x826a,
+};
+
+const GLDebugSeverity = enum(u32) {
+    high = 0x9146,
+    medium = 0x9147,
+    low = 0x9148,
+    notification = 0x826b,
+};
+
+pub fn opengl_debug_callback(source: c.GLenum, message_type: c.GLenum, id: c.GLuint, severity: c.GLenum, length: c.GLsizei, message: [*c]const c.GLchar, userParam: ?*const c.GLvoid) callconv(.C) void {
+    const debug_source = @intToEnum(GLDebugSource, source);
+    const debug_type = @intToEnum(GLDebugType, message_type);
+    const debug_severity = @intToEnum(GLDebugSeverity, severity);
+
+    std.log.debug("[{}][{}][{}] - {s}", .{debug_severity, debug_type, debug_source, message});
+
+    if (debug_severity == GLDebugSeverity.high) {
+        panic("An High severity message was received.", .{});
+    }
+
+    if (debug_type == GLDebugType.@"error") {
+        panic("An OpenGL error occurred.", .{});
+    }
 }
