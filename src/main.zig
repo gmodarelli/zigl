@@ -321,7 +321,7 @@ pub fn opengl_debug_callback(source: c.GLenum, message_type: c.GLenum, id: c.GLu
     const debug_type = @intToEnum(GLDebugType, message_type);
     const debug_severity = @intToEnum(GLDebugSeverity, severity);
 
-    std.log.debug("[{}][{}][{}] - {s}", .{debug_severity, debug_type, debug_source, message});
+    std.log.debug("[{}][{}][{}] - {s}", .{ debug_severity, debug_type, debug_source, message });
 
     if (debug_severity == GLDebugSeverity.high) {
         panic("An High severity message was received.", .{});

@@ -5,10 +5,10 @@ const panic = std.debug.panic;
 pub fn createProgram(allocator: *std.mem.Allocator, vertex_shader_path: []const u8, fragment_shader_path: []const u8) !c.GLuint {
     const cwd = std.fs.cwd();
 
-    const vertex_shader_file = try cwd.openFile(vertex_shader_path, std.fs.File.OpenFlags{.read = true, .write = false});
+    const vertex_shader_file = try cwd.openFile(vertex_shader_path, std.fs.File.OpenFlags{ .read = true, .write = false });
     defer vertex_shader_file.close();
 
-    const fragment_shader_file = try cwd.openFile(fragment_shader_path, std.fs.File.OpenFlags{.read = true, .write = false});
+    const fragment_shader_file = try cwd.openFile(fragment_shader_path, std.fs.File.OpenFlags{ .read = true, .write = false });
     defer fragment_shader_file.close();
 
     var vertex_source = try allocator.alloc(u8, try vertex_shader_file.getEndPos());

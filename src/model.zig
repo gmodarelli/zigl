@@ -70,7 +70,6 @@ pub const Geometry = struct {
             // TODO: check what 's' stands for
             if (std.mem.eql(u8, line[0..2], "s ")) continue;
 
-            
             if (std.mem.eql(u8, line[0..2], "v ")) { // Collect vertex positions
                 var position: math.Vec3(f32) = undefined;
                 var tonkeized_position = std.mem.tokenize(line[2..], " ");
@@ -125,7 +124,7 @@ pub const Geometry = struct {
                     if (index != null) {
                         try self.indices.append(index.?);
                         continue;
-                    } 
+                    }
 
                     var vertex: Vertex = undefined;
                     var components_indices = std.mem.tokenize(face, "/");

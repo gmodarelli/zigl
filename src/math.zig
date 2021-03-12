@@ -145,8 +145,6 @@ pub fn Mat4(comptime T: type) type {
         // column-first
         data: [16]T,
 
-
-
         pub fn identity() Self {
             const self = Self{
                 .data = .{
@@ -159,22 +157,54 @@ pub fn Mat4(comptime T: type) type {
             return self;
         }
 
-        pub fn m00(self: *const Self) T { return self.data[0]; }
-        pub fn m01(self: *const Self) T { return self.data[1]; }
-        pub fn m02(self: *const Self) T { return self.data[2]; }
-        pub fn m03(self: *const Self) T { return self.data[3]; }
-        pub fn m10(self: *const Self) T { return self.data[4]; }
-        pub fn m11(self: *const Self) T { return self.data[5]; }
-        pub fn m12(self: *const Self) T { return self.data[6]; }
-        pub fn m13(self: *const Self) T { return self.data[7]; }
-        pub fn m20(self: *const Self) T { return self.data[8]; }
-        pub fn m21(self: *const Self) T { return self.data[9]; }
-        pub fn m22(self: *const Self) T { return self.data[10]; }
-        pub fn m23(self: *const Self) T { return self.data[11]; }
-        pub fn m30(self: *const Self) T { return self.data[12]; }
-        pub fn m31(self: *const Self) T { return self.data[13]; }
-        pub fn m32(self: *const Self) T { return self.data[14]; }
-        pub fn m33(self: *const Self) T { return self.data[15]; }
+        pub fn m00(self: *const Self) T {
+            return self.data[0];
+        }
+        pub fn m01(self: *const Self) T {
+            return self.data[1];
+        }
+        pub fn m02(self: *const Self) T {
+            return self.data[2];
+        }
+        pub fn m03(self: *const Self) T {
+            return self.data[3];
+        }
+        pub fn m10(self: *const Self) T {
+            return self.data[4];
+        }
+        pub fn m11(self: *const Self) T {
+            return self.data[5];
+        }
+        pub fn m12(self: *const Self) T {
+            return self.data[6];
+        }
+        pub fn m13(self: *const Self) T {
+            return self.data[7];
+        }
+        pub fn m20(self: *const Self) T {
+            return self.data[8];
+        }
+        pub fn m21(self: *const Self) T {
+            return self.data[9];
+        }
+        pub fn m22(self: *const Self) T {
+            return self.data[10];
+        }
+        pub fn m23(self: *const Self) T {
+            return self.data[11];
+        }
+        pub fn m30(self: *const Self) T {
+            return self.data[12];
+        }
+        pub fn m31(self: *const Self) T {
+            return self.data[13];
+        }
+        pub fn m32(self: *const Self) T {
+            return self.data[14];
+        }
+        pub fn m33(self: *const Self) T {
+            return self.data[15];
+        }
 
         pub fn mulVec4(self: *const Self, vec: Vec4(T)) Vec4(T) {
             const result = Vec4(T).init(
@@ -202,10 +232,10 @@ pub fn Mat4(comptime T: type) type {
         pub fn scale(vec: Vec3(T)) Self {
             const result = Self{
                 .data = .{
-                    vec.x, 0, 0, 0,
-                    0, vec.y, 0, 0,
-                    0, 0, vec.z, 0,
-                    0, 0, 0, 1,
+                    vec.x, 0,     0,     0,
+                    0,     vec.y, 0,     0,
+                    0,     0,     vec.z, 0,
+                    0,     0,     0,     1,
                 },
             };
             return result;
@@ -247,28 +277,25 @@ pub fn Mat4(comptime T: type) type {
         }
 
         pub fn mulMat4(self: Self, other: Self) Self {
-            const result = Self {
+            const result = Self{
                 .data = .{
-                    self.data[0] * other.data[ 0] + self.data[4] * other.data[ 1] + self.data[ 8] * other.data[ 2] + self.data[12] * other.data[ 3], // data[0]
-                    self.data[1] * other.data[ 0] + self.data[5] * other.data[ 1] + self.data[ 9] * other.data[ 2] + self.data[13] * other.data[ 3], // data[1]
-                    self.data[2] * other.data[ 0] + self.data[6] * other.data[ 1] + self.data[10] * other.data[ 2] + self.data[14] * other.data[ 3], // data[2]
-                    self.data[3] * other.data[ 0] + self.data[7] * other.data[ 1] + self.data[11] * other.data[ 2] + self.data[15] * other.data[ 3], // data[3]
-
-                    self.data[0] * other.data[ 4] + self.data[4] * other.data[ 5] + self.data[ 8] * other.data[ 6] + self.data[12] * other.data[ 7], // data[4]
-                    self.data[1] * other.data[ 4] + self.data[5] * other.data[ 5] + self.data[ 9] * other.data[ 6] + self.data[13] * other.data[ 7], // data[5]
-                    self.data[2] * other.data[ 4] + self.data[6] * other.data[ 5] + self.data[10] * other.data[ 6] + self.data[14] * other.data[ 7], // data[6]
-                    self.data[3] * other.data[ 4] + self.data[7] * other.data[ 5] + self.data[11] * other.data[ 6] + self.data[15] * other.data[ 7], // data[7]
-
-                    self.data[0] * other.data[ 8] + self.data[4] * other.data[ 9] + self.data[ 8] * other.data[10] + self.data[12] * other.data[11], // data[8]
-                    self.data[1] * other.data[ 8] + self.data[5] * other.data[ 9] + self.data[ 9] * other.data[10] + self.data[13] * other.data[11], // data[9]
-                    self.data[2] * other.data[ 8] + self.data[6] * other.data[ 9] + self.data[10] * other.data[10] + self.data[14] * other.data[11], // data[10]
-                    self.data[3] * other.data[ 8] + self.data[7] * other.data[ 9] + self.data[11] * other.data[10] + self.data[15] * other.data[11], // data[11]
-
-                    self.data[0] * other.data[12] + self.data[4] * other.data[13] + self.data[ 8] * other.data[14] + self.data[12] * other.data[15], // data[12]
-                    self.data[1] * other.data[12] + self.data[5] * other.data[13] + self.data[ 9] * other.data[14] + self.data[13] * other.data[15], // data[13]
+                    self.data[0] * other.data[0] + self.data[4] * other.data[1] + self.data[8] * other.data[2] + self.data[12] * other.data[3], // data[0]
+                    self.data[1] * other.data[0] + self.data[5] * other.data[1] + self.data[9] * other.data[2] + self.data[13] * other.data[3], // data[1]
+                    self.data[2] * other.data[0] + self.data[6] * other.data[1] + self.data[10] * other.data[2] + self.data[14] * other.data[3], // data[2]
+                    self.data[3] * other.data[0] + self.data[7] * other.data[1] + self.data[11] * other.data[2] + self.data[15] * other.data[3], // data[3]
+                    self.data[0] * other.data[4] + self.data[4] * other.data[5] + self.data[8] * other.data[6] + self.data[12] * other.data[7], // data[4]
+                    self.data[1] * other.data[4] + self.data[5] * other.data[5] + self.data[9] * other.data[6] + self.data[13] * other.data[7], // data[5]
+                    self.data[2] * other.data[4] + self.data[6] * other.data[5] + self.data[10] * other.data[6] + self.data[14] * other.data[7], // data[6]
+                    self.data[3] * other.data[4] + self.data[7] * other.data[5] + self.data[11] * other.data[6] + self.data[15] * other.data[7], // data[7]
+                    self.data[0] * other.data[8] + self.data[4] * other.data[9] + self.data[8] * other.data[10] + self.data[12] * other.data[11], // data[8]
+                    self.data[1] * other.data[8] + self.data[5] * other.data[9] + self.data[9] * other.data[10] + self.data[13] * other.data[11], // data[9]
+                    self.data[2] * other.data[8] + self.data[6] * other.data[9] + self.data[10] * other.data[10] + self.data[14] * other.data[11], // data[10]
+                    self.data[3] * other.data[8] + self.data[7] * other.data[9] + self.data[11] * other.data[10] + self.data[15] * other.data[11], // data[11]
+                    self.data[0] * other.data[12] + self.data[4] * other.data[13] + self.data[8] * other.data[14] + self.data[12] * other.data[15], // data[12]
+                    self.data[1] * other.data[12] + self.data[5] * other.data[13] + self.data[9] * other.data[14] + self.data[13] * other.data[15], // data[13]
                     self.data[2] * other.data[12] + self.data[6] * other.data[13] + self.data[10] * other.data[14] + self.data[14] * other.data[15], // data[14]
                     self.data[3] * other.data[12] + self.data[7] * other.data[13] + self.data[11] * other.data[14] + self.data[15] * other.data[15], // data[15]
-                }
+                },
             };
 
             return result;
@@ -279,32 +306,32 @@ pub fn Mat4(comptime T: type) type {
             const sideway: Vec3(T) = (forward.cross(world_up)).normalize();
             const up: Vec3(T) = sideway.cross(forward);
 
-            var m = Self {
+            var m = Self{
                 .data = .{
-                    sideway.x, sideway.y, sideway.z, 0.0,
-                    up.x, up.y, up.z, 0.0,
+                    sideway.x,  sideway.y,  sideway.z,  0.0,
+                    up.x,       up.y,       up.z,       0.0,
                     -forward.x, -forward.y, -forward.z, 0.0,
-                    0.0, 0.0, 0.0, 1.0
-                }
+                    0.0,        0.0,        0.0,        1.0,
+                },
             };
 
             return m.mulMat4(Self.translate(eye.negate()));
         }
 
         pub fn perspective(fov_degrees: f32, aspect: f32, near: f32, far: f32) Self {
-            const fov_radians: f32 = fov_degrees *  0.0174532925;
+            const fov_radians: f32 = fov_degrees * 0.0174532925;
             const q: f32 = 1.0 / std.math.tan(0.5 * fov_radians);
             const a: f32 = q / aspect;
             const b: f32 = (near + far) / (near - far);
             const c: f32 = (2.0 * near * far) / (near - far);
 
-            const result = Self {
+            const result = Self{
                 .data = .{
                     a, 0, 0, 0,
                     0, q, 0, 0,
                     0, 0, b, -1,
-                    0, 0, c, 0
-                }
+                    0, 0, c, 0,
+                },
             };
             return result;
         }
