@@ -4,12 +4,7 @@ const Mat4f = math.Mat4(f32);
 const Vec3f = math.Vec3(f32);
 
 pub const CameraMovement = enum(u8) {
-    forward,
-    backward,
-    left,
-    right,
-    up,
-    down
+    forward, backward, left, right, up, down
 };
 
 pub const Camera = struct {

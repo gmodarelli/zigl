@@ -157,7 +157,7 @@ fn convertObj(obj_path: []const u8, mesh_path: []const u8) !void {
     // mesh_file.write(mesh_vertex_header_magic);
     // mesh_file.write(vertices.items.len);
     // mesh_file.write(vertices.items)
- 
+
     // mesh_file.write(mesh_index_header_magic);
     // mesh_file.write(indices.items.len);
     // mesh_file.write(indices.items)

@@ -44,7 +44,7 @@ pub const SceneRenderer = struct {
     node_uniform_buffer: c.GLuint,
 
     uber_shader: c.GLuint,
-    albedo_sampler: c.GLuint, 
+    albedo_sampler: c.GLuint,
 
     camera: Camera,
 
@@ -206,8 +206,7 @@ pub const SceneRenderer = struct {
         self.allocator.free(self.nodes);
     }
 
-    pub fn update(self: *Self, delta_time: f32) void {
-    }
+    pub fn update(self: *Self, delta_time: f32) void {}
 
     pub fn updateCamera(self: *Self, direction: CameraMovement, delta_time: f32) void {
         self.camera.processMovement(direction, delta_time);
