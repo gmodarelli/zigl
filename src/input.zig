@@ -1,6 +1,7 @@
 const c = @import("c.zig");
 const std = @import("std");
-const Vec2f = @import("math.zig").Vec2(f32);
+const za = @import("zalgebra");
+const Vec2f = za.vec2;
 
 pub const Input = struct {
     const Self = @This();
@@ -25,7 +26,7 @@ pub const Input = struct {
         var x: f64 = undefined;
         var y: f64 = undefined;
         c.glfwGetCursorPos(self.window, &x, &y);
-        return Vec2f.init(@floatCast(f32, x), @floatCast(f32, y));
+        return Vec2f.new(@floatCast(f32, x), @floatCast(f32, y));
     }
 };
 

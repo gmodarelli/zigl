@@ -28,6 +28,9 @@ fn mainApp(b: *Builder) void {
     app.addLibPath("third_party/lib");
     app.linkSystemLibrary("glfw3");
 
+    // Zig libs
+    app.addPackagePath("zalgebra", "../zalgebra/src/main.zig");
+
     switch (builtin.os.tag) {
         .windows => {
             app.linkSystemLibrary("kernel32");
@@ -61,6 +64,9 @@ fn objToBin(b: *Builder) void {
             @compileError("Platform not supported");
         },
     }
+
+    // Zig libs
+    app.addPackagePath("zalgebra", "../zalgebra/src/main.zig");
 
     app.install();
 

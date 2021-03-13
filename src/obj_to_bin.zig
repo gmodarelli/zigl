@@ -1,7 +1,7 @@
 const std = @import("std");
-const math = @import("math.zig");
-const Vec2 = math.Vec2;
-const Vec3 = math.Vec3;
+const za = @import("zalgebra");
+const Vec2 = za.vec2;
+const Vec3 = za.vec3;
 const model = @import("model.zig");
 const Vertex = model.Vertex;
 
@@ -46,11 +46,11 @@ fn convertObj(obj_path: []const u8, mesh_path: []const u8) !void {
     var vertex_map = VertexMap.init(global_allocator);
     defer vertex_map.deinit();
 
-    var positions = std.ArrayList(Vec3(f32)).init(global_allocator);
+    var positions = std.ArrayList(Vec3).init(global_allocator);
     defer positions.deinit();
-    var uvs = std.ArrayList(Vec2(f32)).init(global_allocator);
+    var uvs = std.ArrayList(Vec2).init(global_allocator);
     defer uvs.deinit();
-    var normals = std.ArrayList(Vec3(f32)).init(global_allocator);
+    var normals = std.ArrayList(Vec3).init(global_allocator);
     defer normals.deinit();
 
     var vertices = std.ArrayList(Vertex).init(global_allocator);
@@ -71,7 +71,7 @@ fn convertObj(obj_path: []const u8, mesh_path: []const u8) !void {
         if (std.mem.eql(u8, line[0..2], "s ")) continue;
 
         if (std.mem.eql(u8, line[0..2], "v ")) { // Collect vertex positions
-            var position: math.Vec3(f32) = undefined;
+            var position: Vec3 = undefined;
             var tonkeized_position = std.mem.tokenize(line[2..], " ");
 
             var i: u8 = 0;
@@ -87,7 +87,7 @@ fn convertObj(obj_path: []const u8, mesh_path: []const u8) !void {
             }
             try positions.append(position);
         } else if (std.mem.eql(u8, line[0..3], "vt ")) { // Collect vertex texture coordinates
-            var uv: math.Vec2(f32) = undefined;
+            var uv: Vec2 = undefined;
             var tonkeized_uv = std.mem.tokenize(line[3..], " ");
 
             var i: u8 = 0;
@@ -102,7 +102,7 @@ fn convertObj(obj_path: []const u8, mesh_path: []const u8) !void {
             }
             try uvs.append(uv);
         } else if (std.mem.eql(u8, line[0..3], "vn ")) { // Collect vertex texture normals
-            var normal: math.Vec3(f32) = undefined;
+            var normal: Vec3 = undefined;
             var tonkeized_normal = std.mem.tokenize(line[3..], " ");
 
             var i: u8 = 0;
@@ -116,7 +116,7 @@ fn convertObj(obj_path: []const u8, mesh_path: []const u8) !void {
 
                 i += 1;
             }
-            try normals.append(normal.normalize());
+            try normals.append(normal.norm());
         } else if (std.mem.eql(u8, line[0..2], "f ")) { // Collect vertices and create indices
             var faces = std.mem.tokenize(line[2..], " ");
             while (faces.next()) |face| {

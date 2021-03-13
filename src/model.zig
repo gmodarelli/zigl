@@ -1,14 +1,14 @@
 const std = @import("std");
-const math = @import("math.zig");
-const Vec2 = math.Vec2;
-const Vec3 = math.Vec3;
+const za = @import("zalgebra");
+const Vec2 = za.vec2;
+const Vec3 = za.vec3;
 
 const VertexMap = std.HashMap([]const u8, u32, std.hash_map.hashString, std.hash_map.eqlString, 80);
 
 pub const Vertex = struct {
-    position: Vec3(f32),
-    normal: Vec3(f32),
-    uv0: Vec2(f32),
+    position: Vec3,
+    normal: Vec3,
+    uv0: Vec2,
 };
 
 pub const Mesh = struct {
@@ -51,11 +51,11 @@ pub const Geometry = struct {
         var vertex_map = VertexMap.init(self.allocator);
         defer vertex_map.deinit();
 
-        var positions = std.ArrayList(Vec3(f32)).init(self.allocator);
+        var positions = std.ArrayList(Vec3).init(self.allocator);
         defer positions.deinit();
-        var uvs = std.ArrayList(Vec2(f32)).init(self.allocator);
+        var uvs = std.ArrayList(Vec2).init(self.allocator);
         defer uvs.deinit();
-        var normals = std.ArrayList(Vec3(f32)).init(self.allocator);
+        var normals = std.ArrayList(Vec3).init(self.allocator);
         defer normals.deinit();
 
         var iterator = std.mem.tokenize(data, "\n");
@@ -71,7 +71,7 @@ pub const Geometry = struct {
             if (std.mem.eql(u8, line[0..2], "s ")) continue;
 
             if (std.mem.eql(u8, line[0..2], "v ")) { // Collect vertex positions
-                var position: math.Vec3(f32) = undefined;
+                var position: Vec3 = undefined;
                 var tonkeized_position = std.mem.tokenize(line[2..], " ");
 
                 var i: u8 = 0;
@@ -87,7 +87,7 @@ pub const Geometry = struct {
                 }
                 try positions.append(position);
             } else if (std.mem.eql(u8, line[0..3], "vt ")) { // Collect vertex texture coordinates
-                var uv: math.Vec2(f32) = undefined;
+                var uv: Vec2 = undefined;
                 var tonkeized_uv = std.mem.tokenize(line[3..], " ");
 
                 var i: u8 = 0;
@@ -102,7 +102,7 @@ pub const Geometry = struct {
                 }
                 try uvs.append(uv);
             } else if (std.mem.eql(u8, line[0..3], "vn ")) { // Collect vertex texture normals
-                var normal: math.Vec3(f32) = undefined;
+                var normal: Vec3 = undefined;
                 var tonkeized_normal = std.mem.tokenize(line[3..], " ");
 
                 var i: u8 = 0;
@@ -116,7 +116,7 @@ pub const Geometry = struct {
 
                     i += 1;
                 }
-                try normals.append(normal.normalize());
+                try normals.append(normal.norm());
             } else if (std.mem.eql(u8, line[0..2], "f ")) { // Collect vertices and create indices
                 var faces = std.mem.tokenize(line[2..], " ");
                 while (faces.next()) |face| {

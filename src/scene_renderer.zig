@@ -3,10 +3,11 @@ const c = @import("c.zig");
 const model = @import("model.zig");
 const shaders = @import("shaders.zig");
 const PngImage = @import("textures.zig").PngImage;
-const math = @import("math.zig");
-const Mat4f = math.Mat4(f32);
-const Vec2f = math.Vec2(f32);
-const Vec3f = math.Vec3(f32);
+const za = @import("zalgebra");
+const Mat4f = za.mat4;
+const Vec2f = za.vec2;
+const Vec3f = za.vec3;
+
 const camera = @import("camera.zig");
 const Camera = camera.Camera;
 const CameraMovement = camera.CameraMovement;
@@ -69,7 +70,7 @@ pub const SceneRenderer = struct {
         self.allocator = allocator;
         // Scene data container
         // --------------------
-        self.camera.init(Vec3f.init(0, 0, 0), Vec3f.init(0, 1, 0), -90.0, 0.0);
+        self.camera.init(Vec3f.new(0.0, 0.0, 0.0), Vec3f.new(0.0, 1.0, 0.0), -90.0, 0.0);
 
         // Load all meshes
         // ---------------
@@ -126,25 +127,35 @@ pub const SceneRenderer = struct {
             self.nodes[0] = Node{
                 .mesh_idx = 0,
                 .material_idx = 0,
-                .position = Vec3f.init(1.5, 0, -4),
-                .rotation = Vec3f.init(0, 0, 0),
-                .scale = Vec3f.init(1, 1, 1),
+                .position = Vec3f.new(1.5, 0.0, -4.0),
+                .rotation = Vec3f.new(0.0, 0.0, 0.0),
+                .scale = Vec3f.new(1.0, 1.0, 1.0),
                 .transform = undefined,
             };
+
+            var translation_matrix = Mat4f.from_translate(self.nodes[0].position);
+            var rotation_matrix = Mat4f.from_euler_angle(self.nodes[0].rotation);
+            var scale_matrix = Mat4f.from_scale(self.nodes[0].scale);
+
             self.nodes[0].transform = ModelTransform{
-                .model_matrix = Mat4f.TRS(self.nodes[0].position, self.nodes[0].rotation, self.nodes[0].scale),
+                .model_matrix = (translation_matrix).mult((rotation_matrix).mult(scale_matrix)),
             };
 
             self.nodes[1] = Node{
                 .mesh_idx = 1,
                 .material_idx = 1,
-                .position = Vec3f.init(-1.5, 0, -4),
-                .rotation = Vec3f.init(0, 0, 0),
-                .scale = Vec3f.init(1, 1, 1),
+                .position = Vec3f.new(-1.5, 0.0, -4.0),
+                .rotation = Vec3f.new(0.0, 0.0, 0.0),
+                .scale = Vec3f.new(1.0, 1.0, 1.0),
                 .transform = undefined,
             };
+
+            translation_matrix = Mat4f.from_translate(self.nodes[1].position);
+            rotation_matrix = Mat4f.from_euler_angle(self.nodes[1].rotation);
+            scale_matrix = Mat4f.from_scale(self.nodes[1].scale);
+
             self.nodes[1].transform = ModelTransform{
-                .model_matrix = Mat4f.TRS(self.nodes[1].position, self.nodes[1].rotation, self.nodes[1].scale),
+                .model_matrix = (translation_matrix).mult((rotation_matrix).mult(scale_matrix)),
             };
         }
 
@@ -216,35 +227,33 @@ pub const SceneRenderer = struct {
     }
 
     pub fn update(self: *Self, delta_time: f32) void {
-        if (self.input.isMouseButtonPressed(MouseCode.Button1)) {
-            const mouse_position = self.input.getMousePosition();
-            const delta = (mouse_position.subtract(self.last_mouse_position)).scale(0.003);
-            self.last_mouse_position.x = mouse_position.x;
-            self.last_mouse_position.y = mouse_position.y;
+        const mouse_position = self.input.getMousePosition();
+        const delta = (mouse_position.sub(self.last_mouse_position)).scale(0.003);
+        self.last_mouse_position.x = mouse_position.x;
+        self.last_mouse_position.y = mouse_position.y;
 
-            if (self.input.isKeyPressed(KeyCode.W)) {
-                self.camera.processMovement(CameraMovement.forward, delta_time);
-            }
+        if (self.input.isKeyPressed(KeyCode.W)) {
+            self.camera.processMovement(CameraMovement.forward, delta_time);
+        }
 
-            if (self.input.isKeyPressed(KeyCode.S)) {
-                self.camera.processMovement(CameraMovement.backward, delta_time);
-            }
+        if (self.input.isKeyPressed(KeyCode.S)) {
+            self.camera.processMovement(CameraMovement.backward, delta_time);
+        }
 
-            if (self.input.isKeyPressed(KeyCode.A)) {
-                self.camera.processMovement(CameraMovement.left, delta_time);
-            }
+        if (self.input.isKeyPressed(KeyCode.A)) {
+            self.camera.processMovement(CameraMovement.left, delta_time);
+        }
 
-            if (self.input.isKeyPressed(KeyCode.D)) {
-                self.camera.processMovement(CameraMovement.right, delta_time);
-            }
+        if (self.input.isKeyPressed(KeyCode.D)) {
+            self.camera.processMovement(CameraMovement.right, delta_time);
+        }
 
-            if (self.input.isKeyPressed(KeyCode.Q)) {
-                self.camera.processMovement(CameraMovement.up, delta_time);
-            }
+        if (self.input.isKeyPressed(KeyCode.Q)) {
+            self.camera.processMovement(CameraMovement.up, delta_time);
+        }
 
-            if (self.input.isKeyPressed(KeyCode.E)) {
-                self.camera.processMovement(CameraMovement.down, delta_time);
-            }
+        if (self.input.isKeyPressed(KeyCode.E)) {
+            self.camera.processMovement(CameraMovement.down, delta_time);
         }
     }
 
