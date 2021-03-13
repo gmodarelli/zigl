@@ -222,7 +222,11 @@ pub const Scene = struct {
             c.glNamedBufferSubData(self.node_uniform_buffer, 0, @intCast(c_longlong, @sizeOf(ModelTransform)), &node.transform);
             c.glBindBufferBase(c.GL_UNIFORM_BUFFER, 1, self.node_uniform_buffer);
             c.glBindTextureUnit(0, self.textures[self.materials[node.material_idx].albedo_texture_idx]);
-            c.glDrawElementsBaseVertex(c.GL_TRIANGLES, @intCast(c_int, self.meshes[node.mesh_idx].index_count), c.GL_UNSIGNED_INT, @intToPtr(?*const c_void, self.meshes[node.mesh_idx].index_offset), @intCast(c.GLint, self.meshes[node.mesh_idx].vertex_base));
+            // NOTE: Index offset has to be passed in bytes! Our Mesh.index_offset stores the number of indices to offset by.
+            // Our indices are stored as 32-bit unsigned integerer so to get the right byte offset we need to multiply
+            // Mesh.index_offset by @sizeOf(u32)
+            // Vertex Base is instead the number of vertices to offset into the vertex buffer.
+            c.glDrawElementsBaseVertex(c.GL_TRIANGLES, @intCast(c_int, self.meshes[node.mesh_idx].index_count), c.GL_UNSIGNED_INT, @intToPtr(?*const c_void, self.meshes[node.mesh_idx].index_offset * @sizeOf(u32)), @intCast(c.GLint, self.meshes[node.mesh_idx].vertex_base));
         }
 
         // NOTE: Do we need to unbind this?
