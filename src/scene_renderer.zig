@@ -1,13 +1,16 @@
 const std = @import("std");
 const c = @import("c.zig");
 const model = @import("model.zig");
-const math = @import("math.zig");
 const shaders = @import("shaders.zig");
 const PngImage = @import("textures.zig").PngImage;
+const math = @import("math.zig");
 const Mat4f = math.Mat4(f32);
 const Vec3f = math.Vec3(f32);
+const camera = @import("camera.zig");
+const Camera = camera.Camera;
+const CameraMovement = camera.CameraMovement;
 
-pub const SceneParams = struct {
+pub const GlobalParams = struct {
     view_matrix: Mat4f,
     proj_matrix: Mat4f,
 };
@@ -30,17 +33,20 @@ pub const Node = struct {
 };
 
 pub const Scene = struct {
-    scene_params: SceneParams,
+    global_params: GlobalParams,
 
     vao: c.GLuint,
     vbo: c.GLuint,
     ebo: c.GLuint,
 
-    scene_uniform_buffer: c.GLuint,
+    global_uniform_buffer: c.GLuint,
     node_uniform_buffer: c.GLuint,
 
     uber_shader: c.GLuint,
     albedo_sampler: c.GLuint, 
+
+    camera: Camera,
+    delta_time: f32,
 
     meshes: []model.Mesh,
     textures: []c.GLuint,
@@ -52,13 +58,14 @@ pub const Scene = struct {
     // TODO: Pass the path to a scene file
     pub fn init(scene: *Scene, allocator: *std.mem.Allocator, screen_width: u32, screen_height: u32) !void {
         scene.allocator = allocator;
-
         // Scene data container
         // --------------------
-        const mesh_count = 2; // TODO: This will be read for the scene file
-        scene.meshes = try allocator.alloc(model.Mesh, mesh_count);
+        scene.camera.init(Vec3f.init(0, 0, 0), Vec3f.init(0, 1, 0), -90.0, 0.0);
+
         // Load all meshes
         // ---------------
+        const mesh_count = 2; // TODO: This will be read for the scene file
+        scene.meshes = try allocator.alloc(model.Mesh, mesh_count);
         var geometry: model.Geometry = undefined;
         geometry.init(allocator);
         // TODO: We will iterate over all the meses in the scene file
@@ -133,8 +140,8 @@ pub const Scene = struct {
         }
 
         // Load scene settings
-        scene.scene_params = SceneParams{
-            .view_matrix = Mat4f.lookAt(Vec3f.init(0, 0, 0), Vec3f.init(0, 0, -1), Vec3f.init(0, 1, 0)),
+        scene.global_params = GlobalParams{
+            .view_matrix = scene.camera.getViewMatrix(),
             .proj_matrix = Mat4f.perspective(60.0, @intToFloat(f32, screen_width) / @intToFloat(f32, screen_height), 0.001, 1000.0),
         };
 
@@ -184,8 +191,8 @@ pub const Scene = struct {
         c.glSamplerParameteri(scene.albedo_sampler, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR_MIPMAP_LINEAR);
         c.glSamplerParameteri(scene.albedo_sampler, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
 
-        c.glCreateBuffers(1, &scene.scene_uniform_buffer);
-        c.glNamedBufferStorage(scene.scene_uniform_buffer, @intCast(c_longlong, @sizeOf(SceneParams)), &scene.scene_params, c.GL_DYNAMIC_STORAGE_BIT);
+        c.glCreateBuffers(1, &scene.global_uniform_buffer);
+        c.glNamedBufferStorage(scene.global_uniform_buffer, @intCast(c_longlong, @sizeOf(GlobalParams)), &scene.global_params, c.GL_DYNAMIC_STORAGE_BIT);
 
         c.glCreateBuffers(1, &scene.node_uniform_buffer);
         c.glNamedBufferStorage(scene.node_uniform_buffer, @intCast(c_longlong, @sizeOf(ModelTransform)), null, c.GL_DYNAMIC_STORAGE_BIT);
@@ -199,7 +206,11 @@ pub const Scene = struct {
     }
 
     pub fn update(self: *Scene, delta_time: f32) void {
+        self.delta_time = delta_time;
+    }
 
+    pub fn updateCamera(self: *Scene, direction: CameraMovement) void {
+        self.camera.processMovement(direction, self.delta_time);
     }
 
     pub fn render(self: *Scene) void {
@@ -214,7 +225,9 @@ pub const Scene = struct {
         // Binding program samplers
         c.glBindSampler(0, self.albedo_sampler);
 
-        c.glBindBufferBase(c.GL_UNIFORM_BUFFER, 0, self.scene_uniform_buffer);
+        self.global_params.view_matrix = self.camera.getViewMatrix();
+        c.glNamedBufferSubData(self.global_uniform_buffer, 0, @intCast(c_longlong, @sizeOf(GlobalParams)), &self.global_params);
+        c.glBindBufferBase(c.GL_UNIFORM_BUFFER, 0, self.global_uniform_buffer);
 
         c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, self.ebo);
 

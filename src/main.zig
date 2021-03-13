@@ -3,12 +3,30 @@ const panic = std.debug.panic;
 const c = @import("c.zig");
 const scene_renderer = @import("scene_renderer.zig");
 const Scene = scene_renderer.Scene;
+const CameraMovement = @import("camera.zig").CameraMovement;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 var global_allocator = &gpa.allocator;
 
 const SCR_WIDTH: u32 = 1920;
 const SCR_HEIGHT: u32 = 1080;
+
+fn keyCallback(window: ?*c.GLFWwindow, key: c_int, scancode: c_int, action: c_int, mods: c_int) callconv(.C) void {
+    const scene = @ptrCast(*Scene, @alignCast(@alignOf(Scene), c.glfwGetWindowUserPointer(window).?));
+
+    if (action == c.GLFW_PRESS or action == c.GLFW_REPEAT)
+    {
+        switch (key) {
+            c.GLFW_KEY_W => scene.updateCamera(CameraMovement.forward),
+            c.GLFW_KEY_S => scene.updateCamera(CameraMovement.backward),
+            c.GLFW_KEY_A => scene.updateCamera(CameraMovement.left),
+            c.GLFW_KEY_D => scene.updateCamera(CameraMovement.right),
+            c.GLFW_KEY_Q => scene.updateCamera(CameraMovement.up),
+            c.GLFW_KEY_E => scene.updateCamera(CameraMovement.down),
+            else => {}
+        }
+    }
+}
 
 pub fn main() !void {
     const ok = c.glfwInit();
@@ -51,11 +69,16 @@ pub fn main() !void {
     var scene: Scene = undefined;
     try scene.init(global_allocator, SCR_WIDTH, SCR_HEIGHT);
 
+    c.glfwSetWindowUserPointer(window, @ptrCast(*c_void, &scene));
+    _ = c.glfwSetKeyCallback(window, keyCallback);
+
     var current_time = c.glfwGetTime();
     var last_time = current_time;
     var delta_time: f32 = 0.0;
 
     while (c.glfwWindowShouldClose(window) == 0) {
+        scene.update(delta_time);
+
         // Clear color and depth
         const color = [_]c.GLfloat{ 0.1, 0.1, 0.1, 1.0 };
         const depth = [_]c.GLfloat{0.0};
