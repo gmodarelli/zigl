@@ -10,6 +10,9 @@ const camera = @import("camera.zig");
 const Camera = camera.Camera;
 const CameraMovement = camera.CameraMovement;
 
+const im = @import("input.zig");
+const KeyCode = im.KeyCode;
+
 pub const GlobalParams = struct {
     view_matrix: Mat4f,
     proj_matrix: Mat4f,
@@ -55,8 +58,11 @@ pub const SceneRenderer = struct {
 
     allocator: *std.mem.Allocator,
 
+    input: *im.Input,
+
     // TODO: Pass the path to a scene file
-    pub fn init(self: *Self, allocator: *std.mem.Allocator, screen_width: u32, screen_height: u32) !void {
+    pub fn init(self: *Self, allocator: *std.mem.Allocator, screen_width: u32, screen_height: u32, input: *im.Input) !void {
+        self.input = input;
         self.allocator = allocator;
         // Scene data container
         // --------------------
@@ -206,13 +212,39 @@ pub const SceneRenderer = struct {
         self.allocator.free(self.nodes);
     }
 
-    pub fn update(self: *Self, delta_time: f32) void {}
+    pub fn update(self: *Self, delta_time: f32) void {
+        if (self.input.isKeyPressed(KeyCode.W)) {
+            self.camera.processMovement(CameraMovement.forward, delta_time);
+        }
 
-    pub fn updateCamera(self: *Self, direction: CameraMovement, delta_time: f32) void {
-        self.camera.processMovement(direction, delta_time);
+        if (self.input.isKeyPressed(KeyCode.S)) {
+            self.camera.processMovement(CameraMovement.backward, delta_time);
+        }
+
+        if (self.input.isKeyPressed(KeyCode.A)) {
+            self.camera.processMovement(CameraMovement.left, delta_time);
+        }
+
+        if (self.input.isKeyPressed(KeyCode.D)) {
+            self.camera.processMovement(CameraMovement.right, delta_time);
+        }
+
+        if (self.input.isKeyPressed(KeyCode.Q)) {
+            self.camera.processMovement(CameraMovement.up, delta_time);
+        }
+
+        if (self.input.isKeyPressed(KeyCode.E)) {
+            self.camera.processMovement(CameraMovement.down, delta_time);
+        }
     }
 
     pub fn render(self: *Self) void {
+        // Clear color and depth
+        const color = [_]c.GLfloat{ 0.1, 0.1, 0.1, 1.0 };
+        const depth = [_]c.GLfloat{0.0};
+        c.glClearBufferfv(c.GL_COLOR, 0, @ptrCast([*c]const c.GLfloat, &color));
+        c.glClearBufferfi(c.GL_DEPTH_STENCIL, 0, 1.0, 0);
+
         c.glBindVertexArray(self.vao);
 
         c.glUseProgram(self.uber_shader);

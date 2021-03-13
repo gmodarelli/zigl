@@ -4,6 +4,8 @@ const panic = std.debug.panic;
 
 const SceneRenderer = @import("scene_renderer.zig").SceneRenderer;
 const CameraMovement = @import("camera.zig").CameraMovement;
+const input_module = @import("input.zig");
+const Input = input_module.Input;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 var global_allocator = &gpa.allocator;
@@ -16,6 +18,7 @@ pub const App = struct {
     last_time: f64,
     delta_time: f32,
 
+    input: Input,
     scene: SceneRenderer,
 
     pub fn init(self: *Self, width: u32, height: u32) !void {
@@ -33,6 +36,8 @@ pub const App = struct {
         if (self.window == null) {
             panic("Failed to create GLFW window\n", .{});
         }
+
+        self.input.init(self.window);
 
         c.glfwMakeContextCurrent(self.window);
 
@@ -54,7 +59,7 @@ pub const App = struct {
         c.glDebugMessageCallback(opengl_debug_callback, null);
         c.glEnable(c.GL_DEBUG_OUTPUT_SYNCHRONOUS);
 
-        try self.scene.init(global_allocator, width, height);
+        try self.scene.init(global_allocator, width, height, &self.input);
 
         self.current_time = c.glfwGetTime();
         self.last_time = self.current_time;
@@ -63,16 +68,7 @@ pub const App = struct {
 
     pub fn run(self: *Self) void {
         while (c.glfwWindowShouldClose(self.window) == 0) {
-            self.processInput();
-
             self.scene.update(self.delta_time);
-
-            // Clear color and depth
-            const color = [_]c.GLfloat{ 0.1, 0.1, 0.1, 1.0 };
-            const depth = [_]c.GLfloat{0.0};
-            c.glClearBufferfv(c.GL_COLOR, 0, @ptrCast([*c]const c.GLfloat, &color));
-            c.glClearBufferfi(c.GL_DEPTH_STENCIL, 0, 1.0, 0);
-
             self.scene.render();
 
             c.glfwSwapBuffers(self.window);
@@ -100,32 +96,6 @@ pub const App = struct {
         self.current_time = c.glfwGetTime();
         self.delta_time = @floatCast(f32, self.current_time - self.last_time);
         self.last_time = self.current_time;
-    }
-
-    fn processInput(self: *Self) void {
-        if (c.glfwGetKey(self.window, c.GLFW_KEY_W) == c.GLFW_PRESS) {
-            self.scene.updateCamera(CameraMovement.forward, self.delta_time);
-        }
-
-        if (c.glfwGetKey(self.window, c.GLFW_KEY_S) == c.GLFW_PRESS) {
-            self.scene.updateCamera(CameraMovement.backward, self.delta_time);
-        }
-
-        if (c.glfwGetKey(self.window, c.GLFW_KEY_A) == c.GLFW_PRESS) {
-            self.scene.updateCamera(CameraMovement.left, self.delta_time);
-        }
-
-        if (c.glfwGetKey(self.window, c.GLFW_KEY_D) == c.GLFW_PRESS) {
-            self.scene.updateCamera(CameraMovement.right, self.delta_time);
-        }
-
-        if (c.glfwGetKey(self.window, c.GLFW_KEY_Q) == c.GLFW_PRESS) {
-            self.scene.updateCamera(CameraMovement.up, self.delta_time);
-        }
-
-        if (c.glfwGetKey(self.window, c.GLFW_KEY_E) == c.GLFW_PRESS) {
-            self.scene.updateCamera(CameraMovement.down, self.delta_time);
-        }
     }
 };
 

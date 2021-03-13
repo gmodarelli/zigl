@@ -1,8 +1,8 @@
 const std = @import("std");
-const core = @import("core.zig");
+const App = @import("core.zig").App;
 
 pub fn main() !void {
-    var app: core.App = undefined;
+    var app: App = undefined;
     try app.init(1920, 1080);
     defer app.deinit();
 
