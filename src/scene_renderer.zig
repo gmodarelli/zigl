@@ -5,6 +5,7 @@ const shaders = @import("shaders.zig");
 const PngImage = @import("textures.zig").PngImage;
 const math = @import("math.zig");
 const Mat4f = math.Mat4(f32);
+const Vec2f = math.Vec2(f32);
 const Vec3f = math.Vec3(f32);
 const camera = @import("camera.zig");
 const Camera = camera.Camera;
@@ -12,6 +13,7 @@ const CameraMovement = camera.CameraMovement;
 
 const im = @import("input.zig");
 const KeyCode = im.KeyCode;
+const MouseCode = im.MouseCode;
 
 pub const GlobalParams = struct {
     view_matrix: Mat4f,
@@ -59,6 +61,7 @@ pub const SceneRenderer = struct {
     allocator: *std.mem.Allocator,
 
     input: *im.Input,
+    last_mouse_position: Vec2f = Vec2f.init(0.0, 0.0),
 
     // TODO: Pass the path to a scene file
     pub fn init(self: *Self, allocator: *std.mem.Allocator, screen_width: u32, screen_height: u32, input: *im.Input) !void {
@@ -213,28 +216,35 @@ pub const SceneRenderer = struct {
     }
 
     pub fn update(self: *Self, delta_time: f32) void {
-        if (self.input.isKeyPressed(KeyCode.W)) {
-            self.camera.processMovement(CameraMovement.forward, delta_time);
-        }
+        if (self.input.isMouseButtonPressed(MouseCode.Button1)) {
+            const mouse_position = self.input.getMousePosition();
+            const delta = (mouse_position.subtract(self.last_mouse_position)).scale(0.003);
+            self.last_mouse_position.x = mouse_position.x;
+            self.last_mouse_position.y = mouse_position.y;
 
-        if (self.input.isKeyPressed(KeyCode.S)) {
-            self.camera.processMovement(CameraMovement.backward, delta_time);
-        }
+            if (self.input.isKeyPressed(KeyCode.W)) {
+                self.camera.processMovement(CameraMovement.forward, delta_time);
+            }
 
-        if (self.input.isKeyPressed(KeyCode.A)) {
-            self.camera.processMovement(CameraMovement.left, delta_time);
-        }
+            if (self.input.isKeyPressed(KeyCode.S)) {
+                self.camera.processMovement(CameraMovement.backward, delta_time);
+            }
 
-        if (self.input.isKeyPressed(KeyCode.D)) {
-            self.camera.processMovement(CameraMovement.right, delta_time);
-        }
+            if (self.input.isKeyPressed(KeyCode.A)) {
+                self.camera.processMovement(CameraMovement.left, delta_time);
+            }
 
-        if (self.input.isKeyPressed(KeyCode.Q)) {
-            self.camera.processMovement(CameraMovement.up, delta_time);
-        }
+            if (self.input.isKeyPressed(KeyCode.D)) {
+                self.camera.processMovement(CameraMovement.right, delta_time);
+            }
 
-        if (self.input.isKeyPressed(KeyCode.E)) {
-            self.camera.processMovement(CameraMovement.down, delta_time);
+            if (self.input.isKeyPressed(KeyCode.Q)) {
+                self.camera.processMovement(CameraMovement.up, delta_time);
+            }
+
+            if (self.input.isKeyPressed(KeyCode.E)) {
+                self.camera.processMovement(CameraMovement.down, delta_time);
+            }
         }
     }
 
