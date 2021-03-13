@@ -46,7 +46,6 @@ pub const Scene = struct {
     albedo_sampler: c.GLuint, 
 
     camera: Camera,
-    delta_time: f32,
 
     meshes: []model.Mesh,
     textures: []c.GLuint,
@@ -206,11 +205,10 @@ pub const Scene = struct {
     }
 
     pub fn update(self: *Scene, delta_time: f32) void {
-        self.delta_time = delta_time;
     }
 
-    pub fn updateCamera(self: *Scene, direction: CameraMovement) void {
-        self.camera.processMovement(direction, self.delta_time);
+    pub fn updateCamera(self: *Scene, direction: CameraMovement, delta_time: f32) void {
+        self.camera.processMovement(direction, delta_time);
     }
 
     pub fn render(self: *Scene) void {

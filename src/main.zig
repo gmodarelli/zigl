@@ -12,20 +12,9 @@ const SCR_WIDTH: u32 = 1920;
 const SCR_HEIGHT: u32 = 1080;
 
 fn keyCallback(window: ?*c.GLFWwindow, key: c_int, scancode: c_int, action: c_int, mods: c_int) callconv(.C) void {
-    const scene = @ptrCast(*Scene, @alignCast(@alignOf(Scene), c.glfwGetWindowUserPointer(window).?));
+    return;
 
-    if (action == c.GLFW_PRESS or action == c.GLFW_REPEAT)
-    {
-        switch (key) {
-            c.GLFW_KEY_W => scene.updateCamera(CameraMovement.forward),
-            c.GLFW_KEY_S => scene.updateCamera(CameraMovement.backward),
-            c.GLFW_KEY_A => scene.updateCamera(CameraMovement.left),
-            c.GLFW_KEY_D => scene.updateCamera(CameraMovement.right),
-            c.GLFW_KEY_Q => scene.updateCamera(CameraMovement.up),
-            c.GLFW_KEY_E => scene.updateCamera(CameraMovement.down),
-            else => {}
-        }
-    }
+    // const scene = @ptrCast(*Scene, @alignCast(@alignOf(Scene), c.glfwGetWindowUserPointer(window).?));
 }
 
 pub fn main() !void {
@@ -77,6 +66,8 @@ pub fn main() !void {
     var delta_time: f32 = 0.0;
 
     while (c.glfwWindowShouldClose(window) == 0) {
+        processInput(window, &scene, delta_time);
+
         scene.update(delta_time);
 
         // Clear color and depth
@@ -100,6 +91,32 @@ pub fn main() !void {
     const leaked = gpa.deinit();
     if (leaked) {
         std.log.debug("Memory leaked", .{});
+    }
+}
+
+fn processInput(window: ?*c.GLFWwindow, scene: *Scene, delta_time: f32) void {
+    if (c.glfwGetKey(window, c.GLFW_KEY_W) == c.GLFW_PRESS) {
+        scene.updateCamera(CameraMovement.forward, delta_time);
+    }
+
+    if (c.glfwGetKey(window, c.GLFW_KEY_S) == c.GLFW_PRESS) {
+        scene.updateCamera(CameraMovement.backward, delta_time);
+    }
+
+    if (c.glfwGetKey(window, c.GLFW_KEY_A) == c.GLFW_PRESS) {
+        scene.updateCamera(CameraMovement.left, delta_time);
+    }
+
+    if (c.glfwGetKey(window, c.GLFW_KEY_D) == c.GLFW_PRESS) {
+        scene.updateCamera(CameraMovement.right, delta_time);
+    }
+
+    if (c.glfwGetKey(window, c.GLFW_KEY_Q) == c.GLFW_PRESS) {
+        scene.updateCamera(CameraMovement.up, delta_time);
+    }
+
+    if (c.glfwGetKey(window, c.GLFW_KEY_E) == c.GLFW_PRESS) {
+        scene.updateCamera(CameraMovement.down, delta_time);
     }
 }
 
